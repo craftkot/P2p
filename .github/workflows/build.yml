@@ -30,6 +30,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.8'
+      - name: Test Java STUN parser without Forge dependencies
+        shell: bash
+        run: |
+          mkdir -p build/stun-tests
+          javac --release 17 -d build/stun-tests src/main/java/dev/opentogether/StunProbe.java src/test/java/dev/opentogether/StunProbeTest.java
+          java -cp build/stun-tests dev.opentogether.StunProbeTest
       - run: node --check cloudflare/src/index.js
       - name: Test Cloudflare invitations
         run: node --test cloudflare/test/*.test.mjs
