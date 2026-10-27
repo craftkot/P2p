@@ -19,6 +19,12 @@ jobs:
             - gradle-v1-{{ checksum "build.gradle" }}
             - gradle-v1-
       - run:
+          name: Test Java 17 UDP/STUN parser
+          command: |
+            mkdir -p /tmp/opentogether-stun
+            javac --release 17 -d /tmp/opentogether-stun src/main/java/dev/opentogether/StunProbe.java src/test/java/dev/opentogether/StunProbeTest.java
+            java -cp /tmp/opentogether-stun dev.opentogether.StunProbeTest
+      - run:
           name: Compile Forge 1.20.1 mod
           command: |
             /tmp/gradle-8.8/bin/gradle --no-daemon clean build --stacktrace --info 2>&1 | tee /tmp/opentogether-build.log
