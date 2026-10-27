@@ -56,10 +56,12 @@ final class OpenTogetherScreen extends Screen {
                         : "Нужен e4mc, чтобы друзья подключились извне";
             }
 
-            addRenderableWidget(Button.builder(
-                    Component.literal(hasTunnelMod ? "e4mc установлен" : "2. Скачать e4mc (хозяину мира)"),
+            Button e4mcButton = addRenderableWidget(Button.builder(
+                    Component.literal(hasTunnelMod ? "e4mc обнаружен — дополнительных настроек нет"
+                            : "2. Скачать e4mc (хозяину мира)"),
                     b -> Util.getPlatform().openUri(MOD_PAGE))
                     .bounds(x, y + 51, 280, 20).build());
+            e4mcButton.active = !hasTunnelMod;
 
             addRenderableWidget(Button.builder(
                     Component.literal("Вернуться в игру / посмотреть чат"),
