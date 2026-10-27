@@ -1,11 +1,49 @@
-plugins { id 'net.minecraftforge.gradle' version '[6.0,6.2)' }
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
 group = 'dev.opentogether'
 version = '0.2.0-alpha'
-base { archivesName = 'opentogether' }
+
+base {
+    archivesName = 'opentogether-forge-1.20.1'
+}
+
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
 minecraft {
     mappings channel: 'official', version: '1.20.1'
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                opentogether { source sourceSets.main }
+            }
+        }
+        client {}
+        server { args '--nogui' }
+    }
 }
-repositories { mavenCentral() }
-dependencies { minecraft 'net.minecraftforge:forge:1.20.1-47.4.28' }
-tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.28'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// ForgeGradle must reobfuscate the client-distributable JAR.
+tasks.named('jar', Jar).configure {
+    finalizedBy 'reobfJar'
+}
