@@ -37,7 +37,20 @@ jobs:
           path: build/reports
           destination: reports
 
+  test-cloudflare:
+    docker:
+      - image: cimg/node:22.15
+    steps:
+      - checkout
+      - run:
+          name: Run invitation broker regression tests
+          command: node --test cloudflare/test/*.test.mjs
+      - run:
+          name: Check Worker syntax
+          command: node --check cloudflare/src/index.js
+
 workflows:
   forge-ci:
     jobs:
+      - test-cloudflare
       - build-forge
