@@ -36,6 +36,12 @@ jobs:
           mkdir -p build/stun-tests
           javac --release 17 -d build/stun-tests src/main/java/dev/opentogether/StunProbe.java src/test/java/dev/opentogether/StunProbeTest.java
           java -cp build/stun-tests dev.opentogether.StunProbeTest
+      - name: Test invitation code normalization
+        shell: bash
+        run: |
+          mkdir -p build/code-tests
+          javac --release 17 -d build/code-tests src/main/java/dev/opentogether/InviteCode.java src/test/java/dev/opentogether/InviteCodeTest.java
+          java -cp build/code-tests dev.opentogether.InviteCodeTest
       - run: node --check cloudflare/src/index.js
       - name: Test Cloudflare invitations
         run: node --test cloudflare/test/*.test.mjs
