@@ -47,3 +47,34 @@ test('do not accept malformed codes', async () => {
     assert.equal((await rooms.fetch(resolve(c))).status,400);
   }
 });
+
+
+test('reject CGNAT, reserved IPv4, invalid host labels and unsafe suffixes', async () => {
+  const {rooms} = mock();
+  for (const endpoint of [
+    '100.64.1.3:25565', '100.127.255.254:25565',
+    '169.254.0.1:25565', '203.0.113.7:25565',
+    '198.18.1.1:25565', '224.0.0.1:25565',
+    '999.0.0.1:25565', '192.168.1.5:25565',
+    'my-computer.local:25565', 'singlelabel:25565',
+    'a.-bad.net:25565', '-bad.net:25565', 'good..net:25565'
+  ]) {
+    assert.equal((await rooms.fetch(create(endpoint))).status, 400, endpoint);
+  }
+  assert.equal((await rooms.fetch(create('8.8.8.8:25565'))).status, 201);
+  assert.equal((await rooms.fetch(create('friends.example.net:25565'))).status, 201);
+});
+
+test('unknown IP cannot avoid rate limiting', async () => {
+  const {rooms} = mock();
+  for (let i = 0; i < 12; i++)
+    assert.equal((await rooms.fetch(create('friends.example.net:25565'))).status, 201);
+  assert.equal((await rooms.fetch(create('friends.example.net:25565'))).status, 429);
+});
+
+test('unsupported routes or methods never create a code', async () => {
+  const {rooms} = mock();
+  assert.equal((await rooms.fetch(new Request('https://example.com/create'))).status,404);
+  assert.equal((await rooms.fetch(new Request('https://example.com/resolve/ABC'))).status,400);
+  assert.equal((await rooms.fetch(new Request('https://example.com/resolve/ABCD-EFGH/other'))).status,400);
+});
