@@ -81,3 +81,12 @@ test('unsupported routes or methods never create a code', async () => {
   assert.equal((await rooms.fetch(new Request('https://example.com/resolve/ABC'))).status,400);
   assert.equal((await rooms.fetch(new Request('https://example.com/resolve/ABCD-EFGH/other'))).status,400);
 });
+
+
+test('health endpoint identifies the expected OpenTogether broker contract', async () => {
+  const {default: service} = await import('../src/index.js');
+  const response = await service.fetch(new Request('https://example.workers.dev/health'), {});
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {ok: true, relaysGameTraffic: false});
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+});
