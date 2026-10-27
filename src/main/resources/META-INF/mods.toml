@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+[[mods]]
+modId="opentogether"
+version="0.2.0-alpha"
+displayName="OpenTogether"
+description='''Minecraft friend invitation codes backed by Cloudflare. Direct TCP only in alpha.'''
+[[dependencies.opentogether]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.opentogether]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="BOTH"
