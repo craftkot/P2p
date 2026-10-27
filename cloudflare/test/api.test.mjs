@@ -51,6 +51,7 @@ test('do not accept malformed codes', async () => {
 
 test('reject CGNAT, reserved IPv4, invalid host labels and unsafe suffixes', async () => {
   const {rooms} = mock();
+  let ipSuffix = 1;
   for (const endpoint of [
     '100.64.1.3:25565', '100.127.255.254:25565',
     '169.254.0.1:25565', '203.0.113.7:25565',
@@ -59,10 +60,12 @@ test('reject CGNAT, reserved IPv4, invalid host labels and unsafe suffixes', asy
     'my-computer.local:25565', 'singlelabel:25565',
     'a.-bad.net:25565', '-bad.net:25565', 'good..net:25565'
   ]) {
-    assert.equal((await rooms.fetch(create(endpoint))).status, 400, endpoint);
+    // Give every case a distinct caller; throttling is tested independently.
+    const caller = {'x-ot-client-ip': '198.51.100.' + ipSuffix++};
+    assert.equal((await rooms.fetch(create(endpoint, caller))).status, 400, endpoint);
   }
-  assert.equal((await rooms.fetch(create('8.8.8.8:25565'))).status, 201);
-  assert.equal((await rooms.fetch(create('friends.example.net:25565'))).status, 201);
+  assert.equal((await rooms.fetch(create('8.8.8.8:25565', {'x-ot-client-ip': '198.51.100.100'}))).status, 201);
+  assert.equal((await rooms.fetch(create('friends.example.net:25565', {'x-ot-client-ip': '198.51.100.101'}))).status, 201);
 });
 
 test('unknown IP cannot avoid rate limiting', async () => {
