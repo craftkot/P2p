@@ -1,7 +1,7 @@
 # Run in PowerShell: powershell -NoProfile -ExecutionPolicy Bypass -File .\build-local.ps1
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$gradleVersion = "8.8"
+$gradleVersion = "8.1.1"
 $toolsDir = Join-Path $root ".gradle-dist"
 $gradleDir = Join-Path $toolsDir "gradle-$gradleVersion"
 $gradleExe = Join-Path $gradleDir "bin\gradle.bat"
