@@ -18,6 +18,8 @@ jobs:
       DISPLAY: ':99'
       LIBGL_ALWAYS_SOFTWARE: '1'
       MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+      ALSOFT_DRIVERS: 'null'
+      SDL_AUDIODRIVER: 'dummy'
 
     steps:
       - uses: actions/checkout@v4
