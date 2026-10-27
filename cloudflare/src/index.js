@@ -22,20 +22,44 @@ function newCode() {
 }
 function validEndpoint(endpoint) {
   if (typeof endpoint !== 'string' || endpoint.length > 253) return false;
-  const m = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?):([0-9]{1,5})$/i.exec(endpoint);
-  if (!m) return false;
-  const host = m[1].toLowerCase(), port = Number(m[2]);
-  if (port < 1 || port > 65535 || !Number.isInteger(port)) return false;
-  if (host === 'localhost' || host.endsWith('.localhost') || host === '0.0.0.0' ||
-      host.startsWith('127.') || host.startsWith('169.254.') || host.startsWith('192.168.') ||
-      host.startsWith('10.') || host.startsWith('172.16.') || host.startsWith('172.17.') ||
-      host.startsWith('172.18.') || host.startsWith('172.19.') || /^172\.(2[0-9]|3[01])\./.test(host)) return false;
-  return !host.includes('..');
+  const match = /^([^:]+):([0-9]{1,5})$/.exec(endpoint);
+  if (!match) return false;
+  const host = match[1].toLowerCase(), port = Number(match[2]);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return false;
+
+  const labels = host.split('.');
+  if (labels.some(label => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) return false;
+
+  const ipv4Parts = labels.map(label => Number(label));
+  const looksNumeric = labels.every(label => /^[0-9]+$/.test(label));
+  if (looksNumeric) {
+    if (labels.length !== 4 || labels.some((s, i) =>
+      s.length > 3 || (s.length > 1 && s.startsWith('0')) ||
+      ipv4Parts[i] < 0 || ipv4Parts[i] > 255)) return false;
+
+    const [a, b, c] = ipv4Parts;
+    // Keep non-routable ranges out of invitation codes, including CGNAT.
+    if (a === 0 || a === 10 || a === 127 || a >= 224 ||
+        (a === 100 && b >= 64 && b <= 127) ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && (b === 168 || (b === 0 && c === 0))) ||
+        (a === 198 && (b === 18 || b === 19)) ||
+        (a === 192 && b === 0 && c === 2) ||
+        (a === 198 && b === 51 && c === 100) ||
+        (a === 203 && b === 0 && c === 113)) return false;
+    return true;
+  }
+
+  if (labels.length < 2) return false;
+  if (['localhost', 'local', 'internal', 'test', 'invalid', 'example'].includes(labels.at(-1)))
+    return false;
+  return true;
 }
 export class Rooms {
   constructor(state) { this.storage = state.storage; }
   async limited(ip, scope, count, interval) {
-    if (!ip) return false;
+    ip ||= 'unidentified'; // Never bypass throttling when Cloudflare omits the connecting IP.
     const key = 'limit:' + scope + ':' + ip;
     const now = Date.now();
     const old = await this.storage.get(key);
