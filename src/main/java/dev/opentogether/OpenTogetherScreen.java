@@ -1,6 +1,6 @@
 package dev.opentogether;
 
-import com.google.gson.JsonObject;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -12,22 +12,20 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.network.chat.Component;
+import net.minecraftforge.fml.ModList;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-
-/** Invitations work with an externally reachable TCP endpoint; P2P is not implemented yet. */
+/**
+ * Simple friends-only workflow backed by an optional trusted LAN tunnel.
+ * e4mc handles the relay; OpenTogether never connects to a third-party
+ * service or automatically installs other mods.
+ */
 final class OpenTogetherScreen extends Screen {
+    private static final String MOD_PAGE = "https://modrinth.com/mod/e4mc";
     private final Screen previous;
     private final boolean inviting;
-    private EditBox entry;
-    private Button sendButton;
-    private Button probeButton;
-    private String entryText = "";
+    private EditBox addressField;
     private String status = "";
-    private boolean requestBusy;
-    private boolean probeBusy;
+    private String rememberedAddress = "";
 
     OpenTogetherScreen(Screen previous, boolean inviting) {
         super(Component.literal("OpenTogether"));
@@ -37,46 +35,55 @@ final class OpenTogetherScreen extends Screen {
 
     @Override
     protected void init() {
-        if (entry != null) entryText = entry.getValue();
-        int x = width / 2 - 140, y = height / 2 - 68;
+        int x = width / 2 - 140;
+        int y = height / 2 - 65;
 
-        entry = new EditBox(font, x, y, 280, 20,
-                Component.literal(inviting ? "Публичный адрес:порт" : "Код приглашения"));
-        entry.setMaxLength(254);
-        entry.setValue(entryText);
-        entry.setHint(Component.literal(inviting ? "example.org:25565" : "ABCD-EFGH"));
-        addRenderableWidget(entry);
+        if (inviting) {
+            boolean hasTunnelMod = ModList.get().isLoaded("e4mc");
+            boolean open = isLanOpen();
+            if (!open) {
+                addRenderableWidget(Button.builder(
+                        Component.literal("1. Открыть мир для сети (LAN)"),
+                        b -> minecraft.setScreen(new ShareToLanScreen(previous)))
+                        .bounds(x, y + 26, 280, 20).build());
+                status = "Сначала открой мир для сети";
+            } else {
+                addRenderableWidget(Button.builder(
+                        Component.literal("Мир уже открыт для LAN"),
+                        b -> {}).bounds(x, y + 26, 280, 20).build()).active = false;
+                status = hasTunnelMod
+                        ? "Адрес e4mc появится в чате; щёлкни по нему"
+                        : "Нужен e4mc, чтобы друзья подключились извне";
+            }
 
-        sendButton = addRenderableWidget(Button.builder(
-                Component.literal(inviting ? "Создать код приглашения" : "Подключиться"),
-                button -> action()).bounds(x, y + 26, 280, 20).build());
-        sendButton.active = !requestBusy;
-
-        if (inviting && !isLanOpen()) {
-            probeButton = addRenderableWidget(Button.builder(
-                    Component.literal("Открыть мир для LAN"),
-                    button -> minecraft.setScreen(new ShareToLanScreen(previous)))
+            addRenderableWidget(Button.builder(
+                    Component.literal(hasTunnelMod ? "e4mc установлен" : "2. Скачать e4mc (хозяину мира)"),
+                    b -> Util.getPlatform().openUri(MOD_PAGE))
                     .bounds(x, y + 51, 280, 20).build());
+
+            addRenderableWidget(Button.builder(
+                    Component.literal("Вернуться в игру / посмотреть чат"),
+                    b -> minecraft.setScreen(null)).bounds(x, y + 76, 280, 20).build());
         } else {
-            probeButton = addRenderableWidget(Button.builder(
-                    Component.literal("Проверить доступность STUN / UDP"),
-                    button -> probeNetwork()).bounds(x, y + 51, 280, 20).build());
-            probeButton.active = !probeBusy;
+            addressField = new EditBox(font, x, y + 26, 280, 20,
+                    Component.literal("Адрес сервера друга"));
+            addressField.setMaxLength(255);
+            addressField.setValue(rememberedAddress);
+            addressField.setHint(Component.literal("пример: sunny-fox.eu.e4mc.link"));
+            addRenderableWidget(addressField);
+            addRenderableWidget(Button.builder(Component.literal("Подключиться к другу"),
+                    b -> connect()).bounds(x, y + 52, 280, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Вставить из буфера"),
+                    b -> {
+                        String text = minecraft.keyboardHandler.getClipboard();
+                        if (text != null) addressField.setValue(text.trim());
+                    }).bounds(x, y + 77, 280, 20).build());
+            status = "Введи адрес e4mc или обычного сервера";
+            setInitialFocus(addressField);
         }
 
-        addRenderableWidget(Button.builder(Component.literal("Настроить Cloudflare"),
-                button -> minecraft.setScreen(new CloudflareSettingsScreen(this)))
-                .bounds(x, y + 76, 280, 20).build());
-
-        addRenderableWidget(Button.builder(Component.literal("Назад"), button -> onClose())
-                .bounds(x, y + 101, 280, 20).build());
-
-        setInitialFocus(entry);
-        if (!CloudflareApi.configured()) {
-            status = "Укажи URL Cloudflare Worker в настройках";
-        } else if (inviting && !isLanOpen()) {
-            status = "Открой мир для сети (LAN), затем создай приглашение";
-        }
+        addRenderableWidget(Button.builder(Component.literal("Назад"), b -> onClose())
+                .bounds(x, y + 106, 280, 20).build());
     }
 
     private boolean isLanOpen() {
@@ -84,113 +91,34 @@ final class OpenTogetherScreen extends Screen {
         return server != null && server.isPublished();
     }
 
-    private void action() {
-        if (requestBusy) return;
-        if (!CloudflareApi.configured()) {
-            status = "Сначала настрой Cloudflare Worker";
+    private void connect() {
+        String endpoint = addressField.getValue().trim();
+        rememberedAddress = endpoint;
+        // Explicitly disallow pasted URLs, spaces and unexpected URL schemes.
+        if (!endpoint.matches("(?i)^[a-z0-9][a-z0-9.-]{0,252}(?::[0-9]{1,5})?$")) {
+            status = "Нужен адрес сервера, не ссылка https:// или код";
             return;
         }
-        if (inviting && !isLanOpen()) {
-            status = "Открой мир для сети через меню Minecraft";
-            return;
-        }
-
-        String value = entry.getValue().trim();
-        if (value.isEmpty()) {
-            status = inviting ? "Укажи публичный адрес и порт" : "Введи код приглашения";
-            return;
-        }
-        if (!inviting) {
+        int colon = endpoint.lastIndexOf(':');
+        if (colon >= 0) {
             try {
-                value = InviteCode.normalize(value);
-            } catch (IllegalArgumentException ex) {
-                status = "Неверный код: нужно 8 букв/цифр без I, O, 0, 1";
-                return;
-            }
-        }
-
-        requestBusy = true;
-        sendButton.active = false;
-        status = "Запрос к Cloudflare...";
-        final String endpointOrCode = value;
-
-        CompletableFuture<JsonObject> future = inviting
-                ? CloudflareApi.call("POST", "/create", "{\"endpoint\":\"" + jsonEscape(value) + "\"}")
-                : CloudflareApi.call("GET", "/resolve/" + value, "");
-
-        future.whenComplete((json, error) -> Minecraft.getInstance().execute(() -> {
-            requestBusy = false;
-            if (sendButton != null) sendButton.active = true;
-            // A stale HTTP response must NEVER connect after the user closes this screen.
-            if (minecraft.screen != this) return;
-
-            if (error != null) {
-                Throwable root = rootCause(error);
-                String message = root.getMessage();
-                if (message != null && message.contains("HTTP 404")) status = "Код не найден или истёк";
-                else if (message != null && message.contains("HTTP 429")) status = "Слишком много запросов — попробуй позже";
-                else if (message != null && message.contains("HTTP 400")) status = "Некорректный адрес или код";
-                else status = "Ошибка Cloudflare. Подробности в latest.log";
-                CloudflareApi.LOG.warn("[OpenTogether] Request failed type={}",
-                        root.getClass().getSimpleName());
-                return;
-            }
-
-            try {
-                if (inviting) {
-                    String code = InviteCode.normalize(json.get("code").getAsString());
-                    minecraft.keyboardHandler.setClipboard(code);
-                    status = "Код " + code + " скопирован. Действует 10 минут.";
-                } else {
-                    String endpoint = json.get("endpoint").getAsString();
-                    if (!endpoint.contains(":")) throw new IllegalArgumentException("Missing TCP port");
-                    ServerAddress address = ServerAddress.parseString(endpoint);
-                    ServerData data = new ServerData("OpenTogether friend", endpoint, false);
-                    ConnectScreen.startConnecting(previous, minecraft, address, data, false);
+                int port = Integer.parseInt(endpoint.substring(colon + 1));
+                if (port < 1 || port > 65535) {
+                    status = "Неверный номер TCP-порта";
+                    return;
                 }
-            } catch (RuntimeException ex) {
-                status = "Ошибка ответа сервера или подключения";
-                CloudflareApi.LOG.warn("[OpenTogether] Invalid invitation response type={}",
-                        ex.getClass().getSimpleName());
+            } catch (NumberFormatException ex) {
+                status = "Неверный TCP-порт";
+                return;
             }
-        }));
-    }
-
-    private void probeNetwork() {
-        if (probeBusy) return;
-        probeBusy = true;
-        probeButton.active = false;
-        status = "Проверка STUN/UDP...";
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return StunProbe.probe();
-            } catch (IOException ex) {
-                throw new CompletionException(ex);
-            }
-        }).whenComplete((result, error) -> Minecraft.getInstance().execute(() -> {
-            probeBusy = false;
-            if (probeButton != null) probeButton.active = true;
-            if (minecraft.screen != this) return;
-
-            if (error != null) {
-                status = "STUN недоступен: проверь VPN и UDP";
-                CloudflareApi.LOG.warn("[OpenTogether] STUN probe failed type={}",
-                        rootCause(error).getClass().getSimpleName());
-            } else {
-                status = "STUN доступен, RTT " + result.rttMs() + " мс (это ещё не P2P)";
-                CloudflareApi.LOG.info("[OpenTogether] STUN RTT={}ms", result.rttMs());
-            }
-        }));
-    }
-
-    private static Throwable rootCause(Throwable ex) {
-        Throwable root = ex;
-        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-        return root;
-    }
-
-    private static String jsonEscape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+        }
+        try {
+            ServerAddress address = ServerAddress.parseString(endpoint);
+            ServerData data = new ServerData("OpenTogether friend", endpoint, false);
+            ConnectScreen.startConnecting(previous, minecraft, address, data, false);
+        } catch (RuntimeException ex) {
+            status = "Подключиться не удалось; проверь адрес и Minecraft";
+        }
     }
 
     @Override
@@ -199,19 +127,23 @@ final class OpenTogetherScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderBackground(g);
-        super.render(g, mouseX, mouseY, partial);
-        g.drawCenteredString(font, inviting ? "Приглашение в одиночный мир" : "Подключение к другу",
-                width / 2, height / 2 - 89, 0xFFFFFF);
-        String message = status.length() > 52 ? status.substring(0, 52) : status;
-        g.drawCenteredString(font, message, width / 2, height / 2 + 62, 0xDDDDDD);
-        if (inviting && isLanOpen()) {
-            g.drawCenteredString(font, "LAN-порт: " + minecraft.getSingleplayerServer().getPort()
-                    + " (должен быть доступен извне)", width / 2, height / 2 + 79, 0xFFBB77);
-        } else if (inviting) {
-            g.drawCenteredString(font, "Обычное LAN не пробивает NAT: потребуется открытый TCP-порт.",
-                    width / 2, height / 2 + 79, 0xFFBB77);
+        super.render(g, mouseX, mouseY, partialTick);
+        int center = width / 2;
+        g.drawCenteredString(font, inviting ? "Пригласить друга (через e4mc)"
+                : "Подключиться к другу", center, height / 2 - 86, 0xFFFFFF);
+        g.drawCenteredString(font, status, center, height / 2 + 73, 0xDDDDDD);
+        if (inviting) {
+            g.drawCenteredString(font,
+                    ModList.get().isLoaded("e4mc")
+                            ? "Бесплатный временный туннель без проброса портов"
+                            : "Без e4mc мир доступен только в локальной сети",
+                    center, height / 2 + 91, 0xFFBB66);
+        } else {
+            g.drawCenteredString(font,
+                    "Cloudflare, код и аккаунт не нужны",
+                    center, height / 2 + 91, 0xAADD99);
         }
     }
 
