@@ -19,6 +19,9 @@ public final class OpenTogetherMenus {
         if(screen instanceof TitleScreen || screen instanceof JoinMultiplayerScreen) {
             e.addListener(Button.builder(Component.literal("Друзья / Подключиться"), b->Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen,false)))
                     .bounds(screen.width-174,6,166,20).build());
+            if (screen instanceof TitleScreen) {
+                CloudflareApi.LOG.info("[OpenTogether] Title-screen friend button registered");
+            }
         }
         if(screen instanceof PauseScreen && Minecraft.getInstance().getSingleplayerServer() != null) {
             e.addListener(Button.builder(Component.literal("Пригласить друга"), b->Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen,true)))
