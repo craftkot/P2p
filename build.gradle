@@ -6,13 +6,17 @@ plugins {
 }
 
 group = 'dev.opentogether'
-version = '0.4.0-alpha'
+version = '0.5.0-alpha'
 
 base {
     archivesName = 'opentogether-forge-1.20.1'
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// ForgeGradle 6 official dependency packaging; e4mc remains a separate, MIT-licensed
+// nested mod at runtime, but the player installs only one physical OpenTogether JAR.
+jarJar.enable()
 
 minecraft {
     mappings channel: 'official', version: '1.20.1'
@@ -33,10 +37,14 @@ minecraft {
 
 repositories {
     mavenCentral()
+    maven { url = uri("$rootDir/.e4mc-vendor") }
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.4.28'
+    jarJar('link.e4mc:e4mc-forge:[6.2.3,6.2.4)') {
+        jarJar.pin(it, '6.2.3')
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -46,4 +54,9 @@ tasks.withType(JavaCompile).configureEach {
 // ForgeGradle must reobfuscate the client-distributable JAR.
 tasks.named('jar', Jar).configure {
     finalizedBy 'reobfJar'
+}
+
+// ForgeGradle's jarJar task produces the -all.jar distributable.
+tasks.named('jarJar').configure {
+    finalizedBy 'reobfJarJar'
 }

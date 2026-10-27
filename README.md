@@ -1,11 +1,16 @@
-# OpenTogether
+# OpenTogether 0.5.0-alpha — experimental one-JAR build
 
-Forge 1.20.1. Simple host/join menu for playing Minecraft Java Edition with friends.
+Minecraft 1.20.1 Forge 47.x. **Only one installation file**: `opentogether-forge-1.20.1-0.5.0-alpha-all.jar`.
 
-**0.4.0-alpha** removes Cloudflare and temporary codes from the mod. Hosts can optionally install **[e4mc 6.2.3 for Forge](https://modrinth.com/mod/e4mc/version/6.2.3-forge)** to expose a LAN world through the e4mc project's free public relay infrastructure, without router port forwarding. Friends do not need e4mc; they join with the public hostname.
+This build **bundles e4mc 6.2.3 unchanged** through ForgeGradle's official Jar-in-Jar mechanism. e4mc remains an identifiable upstream mod nested inside the JAR, rather than new networking code written by OpenTogether. e4mc uses public relay service operated by its upstream team, subject to availability and service policies. No Cloudflare settings, Steam, VPN, or router port forwarding are required for typical sessions.
 
-OpenTogether does not bundle or impersonate the e4mc relay client. e4mc is a separate, optional mod for remote hosting; without it, vanilla LAN works only on the local network unless the host's TCP port is publicly reachable.
+- Source of upstream networking engine: https://github.com/vgskye/e4mc-minecraft-architectury
+- e4mc license: MIT, copyright 2024 Skye, included in `licenses/e4mc-MIT.txt`
+- Forge Jar-in-Jar docs: https://docs.minecraftforge.net/en/fg-6.x/dependencies/jarinjar/
+- **Experimental:** Forge may or may not recognize nested mod components across all installations; test loading in Minecraft before treating this build as verified.
 
-Source directory `cloudflare/` remains only as an unused experimental backend prototype, not used by the current mod.
+Install **only the `-all.jar`** file in `mods`; remove the old OpenTogether JAR and any separately installed e4mc JAR first.
 
-See [Russian guide](README_RU.md).
+Enter a single-player world, click Esc → Invite friend → Open to LAN. Once e4mc reports a temporary public hostname in chat, share the hostname with your friends. Friends can connect using an ordinary Minecraft client with a matching version and matching gameplay mods.
+
+See `README_RU.md` for the general guide.

@@ -3,9 +3,9 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="opentogether"
-version="0.4.0-alpha"
+version="0.5.0-alpha"
 displayName="OpenTogether"
-description='''Invite friends to LAN worlds via optional e4mc relay; no Cloudflare configuration required.'''
+description='''Single-JAR build with bundled MIT-licensed e4mc 6.2.3 tunnel for Minecraft friends.'''
 [[dependencies.opentogether]]
 modId="forge"
 mandatory=true

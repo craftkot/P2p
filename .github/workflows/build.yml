@@ -49,13 +49,28 @@ jobs:
       - run: node --check cloudflare/src/index.js
       - name: Test Cloudflare invitations
         run: node --test cloudflare/test/*.test.mjs
-      - name: Build Forge mod
-        run: gradle --no-daemon clean build --stacktrace --info
+      - name: Stage bundled upstream e4mc 6.2.3
+        run: bash ci/prepare-e4mc.sh
+      - name: Build Forge one-JAR distribution
+        run: gradle --no-daemon clean jarJar --stacktrace
+      - name: Verify nested e4mc exists
+        run: |
+          python3 - <<'PY'
+          import glob,zipfile,io
+          jars=glob.glob('build/libs/*-all.jar')
+          assert len(jars)==1, jars
+          with zipfile.ZipFile(jars[0]) as z:
+            nest=[n for n in z.namelist() if n.startswith('META-INF/jarjar/') and n.endswith('.jar')]
+            assert len(nest)==1, nest
+            assert 'licenses/e4mc-MIT.txt' in z.namelist()
+            assert 'version="0.5.0-alpha"' in z.read('META-INF/mods.toml').decode()
+            with zipfile.ZipFile(io.BytesIO(z.read(nest[0]))) as inner:
+              assert 'modId = "e4mc"' in inner.read('META-INF/mods.toml').decode()
+          print('Single-file Forge/e4mc packaging verified')
+          PY
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
-          name: opentogether-build
-          path: |
-            build/libs/*.jar
-            build/reports/**
+          name: opentogether-onejar-forge-1.20.1
+          path: build/libs/*-all.jar
           if-no-files-found: error

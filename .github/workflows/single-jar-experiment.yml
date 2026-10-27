@@ -1,0 +1,103 @@
+name: Experimental Single-JAR e4mc Bundling
+
+on:
+  push:
+    branches: ['feature/single-jar-e4mc']
+  workflow_dispatch:
+
+concurrency:
+  group: single-jar-experiment-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
+      - name: Download and check official e4mc release
+        run: bash ci/prepare-e4mc.sh
+      - name: Build nested e4mc Forge bundle
+        run: gradle --no-daemon clean jarJar --stacktrace
+      - name: Inspect nested e4mc metadata
+        run: |
+          python3 - <<'PY'
+          import zipfile,glob,json,io,sys
+          paths=glob.glob('build/libs/*-all.jar')
+          assert len(paths)==1,paths
+          with zipfile.ZipFile(paths[0]) as z:
+              names=z.namelist()
+              meta=[p for p in names if p.endswith('/jarjar/metadata.json')]
+              nested=[p for p in names if p.startswith('META-INF/jarjar/') and p.endswith('.jar')]
+              print('META:',meta, 'NESTED:',nested)
+              assert meta and nested,(meta,nested)
+              payload=z.read(meta[0]);print(payload.decode()[:4000])
+              mod_count=0
+              for name in nested:
+                  with zipfile.ZipFile(io.BytesIO(z.read(name))) as inner:
+                      if 'META-INF/mods.toml' in inner.namelist():
+                          t=inner.read('META-INF/mods.toml').decode('utf-8',errors='replace')
+                          print(name, t[:700])
+                          if 'e4mc' in t: mod_count+=1
+              assert mod_count==1,'e4mc not recognized within nested JAR'
+              assert 'licenses/e4mc-MIT.txt' in names
+          PY
+      - name: Boot official Forge server with only the bundled JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/opentogether-forge-smoke
+          cd /tmp/opentogether-forge-smoke
+          curl -fLSs --retry 3 --max-time 90 \
+            https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.28/forge-1.20.1-47.4.28-installer.jar \
+            -o forge-installer.jar
+          java -jar forge-installer.jar --installServer > install.log 2>&1
+          mkdir -p mods
+          cp "$GITHUB_WORKSPACE"/build/libs/*-all.jar mods/
+          printf 'eula=true\n' > eula.txt
+          printf 'online-mode=false\nview-distance=3\nsimulation-distance=3\n' > server.properties
+          ./run.sh nogui > server.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 160); do
+            if grep -Eq 'Done \([0-9.]+s\)!' server.log; then
+              echo "Standalone Forge loaded one physical OpenTogether JAR."
+              grep -i 'e4mc' server.log | head -n 8 || true
+              grep -i 'opentogether' server.log | head -n 8 || true
+              grep -Eiq 'e4mc' server.log || { echo 'Nested e4mc was not detected'; exit 1; }
+              grep -Eiq 'opentogether' server.log || { echo 'OpenTogether mod was not detected'; exit 1; }
+              exit 0
+            fi
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "Forge server crashed"
+              tail -n 180 server.log
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Forge server load timed out"
+          tail -n 180 server.log
+          exit 1
+      - name: Upload standalone server boot log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onejar-forge-standalone-smoke-logs
+          path: /tmp/opentogether-forge-smoke/*.log
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: opentogether-singlejar-experimental
+          path: build/libs/*-all.jar
+          if-no-files-found: error
