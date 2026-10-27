@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.ShareToLanScreen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.server.IntegratedServer;
@@ -51,10 +52,17 @@ final class OpenTogetherScreen extends Screen {
                 button -> action()).bounds(x, y + 26, 280, 20).build());
         sendButton.active = !requestBusy;
 
-        probeButton = addRenderableWidget(Button.builder(
-                Component.literal("Проверить доступность STUN / UDP"),
-                button -> probeNetwork()).bounds(x, y + 51, 280, 20).build());
-        probeButton.active = !probeBusy;
+        if (inviting && !isLanOpen()) {
+            probeButton = addRenderableWidget(Button.builder(
+                    Component.literal("Открыть мир для LAN"),
+                    button -> minecraft.setScreen(new ShareToLanScreen(previous)))
+                    .bounds(x, y + 51, 280, 20).build());
+        } else {
+            probeButton = addRenderableWidget(Button.builder(
+                    Component.literal("Проверить доступность STUN / UDP"),
+                    button -> probeNetwork()).bounds(x, y + 51, 280, 20).build());
+            probeButton.active = !probeBusy;
+        }
 
         addRenderableWidget(Button.builder(Component.literal("Настроить Cloudflare"),
                 button -> minecraft.setScreen(new CloudflareSettingsScreen(this)))
