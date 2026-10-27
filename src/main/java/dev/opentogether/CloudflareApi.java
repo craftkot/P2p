@@ -27,6 +27,30 @@ final class CloudflareApi {
         return !CloudflareConfig.getUrl().isBlank();
     }
 
+    /** Safe unauthenticated worker health check; no invitation is created. */
+    static CompletableFuture<Boolean> health(String candidateUrl) {
+        if (!CloudflareConfig.isValidUrl(candidateUrl))
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid Worker HTTPS URL"));
+        String base = candidateUrl.trim().replaceFirst("/$", "");
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(base + "/health"))
+                    .timeout(Duration.ofSeconds(8))
+                    .header("Accept", "application/json")
+                    .GET().build();
+            return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(response -> {
+                        if (response.statusCode() != 200 || response.body().length() > 8192)
+                            throw new IllegalStateException("Worker health check returned HTTP " + response.statusCode());
+                        JsonObject result = JsonParser.parseString(response.body()).getAsJsonObject();
+                        return result.has("ok") && result.get("ok").getAsBoolean()
+                                && result.has("relaysGameTraffic")
+                                && !result.get("relaysGameTraffic").getAsBoolean();
+                    });
+        } catch (RuntimeException ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
     static CompletableFuture<JsonObject> call(String method, String route, String body) {
         String base = CloudflareConfig.getUrl();
         if (base.isEmpty())
