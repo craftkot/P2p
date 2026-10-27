@@ -1,7 +1,5 @@
 package dev.opentogether;
 
-import net.minecraft.Util;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -12,18 +10,13 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.fml.ModList;
 
-/**
- * Simple friends-only workflow backed by an optional trusted LAN tunnel.
- * e4mc handles the relay; OpenTogether never connects to a third-party
- * service or automatically installs other mods.
- */
+/** One-JAR invitation screen. e4mc is bundled; users never install a second mod. */
 final class OpenTogetherScreen extends Screen {
-    private static final String MOD_PAGE = "https://modrinth.com/mod/e4mc/version/6.2.3-forge";
     private final Screen previous;
     private final boolean inviting;
     private EditBox addressField;
+    private Button copyButton;
     private String status = "";
     private String rememberedAddress = "";
 
@@ -36,56 +29,55 @@ final class OpenTogetherScreen extends Screen {
     @Override
     protected void init() {
         int x = width / 2 - 140;
-        int y = height / 2 - 65;
-
+        int y = height / 2 - 67;
         if (inviting) {
-            boolean hasTunnelMod = ModList.get().isLoaded("e4mc");
-            boolean open = isLanOpen();
-            if (!open) {
+            if (!isLanOpen()) {
                 addRenderableWidget(Button.builder(
-                        Component.literal("1. Открыть мир для сети (LAN)"),
-                        b -> minecraft.setScreen(new ShareToLanScreen(previous)))
-                        .bounds(x, y + 26, 280, 20).build());
-                status = "Сначала открой мир для сети";
+                        Component.literal("Открыть мир для друзей"),
+                        b -> {
+                            FriendInvites.requestCopy();
+                            minecraft.setScreen(new ShareToLanScreen(previous));
+                        }).bounds(x, y + 28, 280, 20).build());
+                status = "Открой LAN — адрес появится и скопируется автоматически";
             } else {
-                addRenderableWidget(Button.builder(
-                        Component.literal("Мир уже открыт для LAN"),
-                        b -> {}).bounds(x, y + 26, 280, 20).build()).active = false;
-                status = hasTunnelMod
-                        ? "Адрес e4mc появится в чате; щёлкни по нему"
-                        : "Нужен e4mc, чтобы друзья подключились извне";
+                copyButton = addRenderableWidget(Button.builder(
+                        Component.literal("Скопировать приглашение"),
+                        b -> {
+                            FriendInvites.requestCopy();
+                            status = FriendInvites.getPublishedDomain() != null
+                                    ? "Адрес скопирован. Отправь его другу."
+                                    : "Ожидаем адрес от встроенного e4mc...";
+                        }).bounds(x, y + 28, 280, 20).build());
+                copyButton.active = FriendInvites.getPublishedDomain() != null;
+                // Opening the invitation screen is an explicit request to share.
+                // If the broker is still connecting, copy as soon as it assigns a domain.
+                FriendInvites.requestCopy();
+                status = copyButton.active
+                        ? "Адрес уже скопирован. Отправь его другу."
+                        : "Подключаемся к сети e4mc; скопируем адрес автоматически...";
             }
-
-            Button e4mcButton = addRenderableWidget(Button.builder(
-                    Component.literal(hasTunnelMod ? "e4mc обнаружен — дополнительных настроек нет"
-                            : "2. Скачать e4mc (хозяину мира)"),
-                    b -> Util.getPlatform().openUri(MOD_PAGE))
-                    .bounds(x, y + 51, 280, 20).build());
-            e4mcButton.active = !hasTunnelMod;
-
-            addRenderableWidget(Button.builder(
-                    Component.literal("Вернуться в игру / посмотреть чат"),
-                    b -> minecraft.setScreen(null)).bounds(x, y + 76, 280, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Вернуться в игру"),
+                    b -> minecraft.setScreen(null)).bounds(x, y + 55, 280, 20).build());
         } else {
-            addressField = new EditBox(font, x, y + 26, 280, 20,
-                    Component.literal("Адрес сервера друга"));
+            addressField = new EditBox(font, x, y + 28, 280, 20,
+                    Component.literal("Адрес друга"));
             addressField.setMaxLength(255);
             addressField.setValue(rememberedAddress);
-            addressField.setHint(Component.literal("пример: sunny-fox.eu.e4mc.link"));
+            addressField.setHint(Component.literal("example.eu.e4mc.link"));
             addRenderableWidget(addressField);
-            addRenderableWidget(Button.builder(Component.literal("Подключиться к другу"),
-                    b -> connect()).bounds(x, y + 52, 280, 20).build());
-            addRenderableWidget(Button.builder(Component.literal("Вставить из буфера"),
+            addRenderableWidget(Button.builder(Component.literal("Подключиться"),
+                    b -> connect()).bounds(x, y + 55, 280, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Вставить приглашение"),
                     b -> {
-                        String text = minecraft.keyboardHandler.getClipboard();
-                        if (text != null) addressField.setValue(text.trim());
-                    }).bounds(x, y + 77, 280, 20).build());
-            status = "Введи адрес e4mc или обычного сервера";
+                        String clipboard = minecraft.keyboardHandler.getClipboard();
+                        if (clipboard != null) addressField.setValue(clipboard.trim());
+                    }).bounds(x, y + 82, 280, 20).build());
+            status = "Вставь адрес, который прислал друг";
             setInitialFocus(addressField);
         }
 
-        addRenderableWidget(Button.builder(Component.literal("Назад"), b -> onClose())
-                .bounds(x, y + 106, 280, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Назад"),
+                b -> onClose()).bounds(x, y + 109, 280, 20).build());
     }
 
     private boolean isLanOpen() {
@@ -96,9 +88,8 @@ final class OpenTogetherScreen extends Screen {
     private void connect() {
         String endpoint = addressField.getValue().trim();
         rememberedAddress = endpoint;
-        // Explicitly disallow pasted URLs, spaces and unexpected URL schemes.
         if (!endpoint.matches("(?i)^[a-z0-9][a-z0-9.-]{0,252}(?::[0-9]{1,5})?$")) {
-            status = "Нужен адрес сервера, не ссылка https:// или код";
+            status = "Введи адрес Minecraft, без https://";
             return;
         }
         int colon = endpoint.lastIndexOf(':');
@@ -106,11 +97,11 @@ final class OpenTogetherScreen extends Screen {
             try {
                 int port = Integer.parseInt(endpoint.substring(colon + 1));
                 if (port < 1 || port > 65535) {
-                    status = "Неверный номер TCP-порта";
+                    status = "Некорректный номер порта";
                     return;
                 }
             } catch (NumberFormatException ex) {
-                status = "Неверный TCP-порт";
+                status = "Некорректный номер порта";
                 return;
             }
         }
@@ -119,7 +110,7 @@ final class OpenTogetherScreen extends Screen {
             ServerData data = new ServerData("OpenTogether friend", endpoint, false);
             ConnectScreen.startConnecting(previous, minecraft, address, data, false);
         } catch (RuntimeException ex) {
-            status = "Подключиться не удалось; проверь адрес и Minecraft";
+            status = "Проверь адрес и соединение";
         }
     }
 
@@ -129,23 +120,27 @@ final class OpenTogetherScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics g, int mx, int my, float tick) {
         renderBackground(g);
-        super.render(g, mouseX, mouseY, partialTick);
-        int center = width / 2;
-        g.drawCenteredString(font, inviting ? "Пригласить друга (через e4mc)"
-                : "Подключиться к другу", center, height / 2 - 86, 0xFFFFFF);
-        g.drawCenteredString(font, status, center, height / 2 + 73, 0xDDDDDD);
+        super.render(g, mx, my, tick);
+        int mid = width / 2;
+        g.drawCenteredString(font, inviting ? "Пригласить друга" : "Подключиться к другу",
+                mid, height / 2 - 88, 0xFFFFFF);
+        if (inviting && isLanOpen()) {
+            String domain = FriendInvites.getPublishedDomain();
+            if (copyButton != null) copyButton.active = domain != null;
+            if (domain != null) {
+                g.drawCenteredString(font, domain, mid, height / 2 - 21, 0x99FF99);
+                if (!status.startsWith("Адрес уже скопирован") && !status.startsWith("Адрес скопирован")) {
+                    status = "Адрес готов. Нажми «Скопировать» или отправь другу.";
+                }
+            }
+        }
+        g.drawCenteredString(font, status.length() > 68 ? status.substring(0, 68) : status,
+                mid, height / 2 + 76, 0xDDDDDD);
         if (inviting) {
-            g.drawCenteredString(font,
-                    ModList.get().isLoaded("e4mc")
-                            ? "Бесплатный временный туннель без проброса портов"
-                            : "Без e4mc мир доступен только в локальной сети",
-                    center, height / 2 + 91, 0xFFBB66);
-        } else {
-            g.drawCenteredString(font,
-                    "Cloudflare, код и аккаунт не нужны",
-                    center, height / 2 + 91, 0xAADD99);
+            g.drawCenteredString(font, "Встроенный e4mc • один JAR • без Cloudflare",
+                    mid, height / 2 + 94, 0xFFBB77);
         }
     }
 

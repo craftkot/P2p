@@ -3,10 +3,11 @@ plugins {
     id 'idea'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.+'
 }
 
 group = 'dev.opentogether'
-version = '0.5.0-alpha'
+version = '0.6.0-alpha'
 
 base {
     archivesName = 'opentogether-forge-1.20.1'
@@ -42,9 +43,19 @@ repositories {
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.4.28'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     jarJar('link.e4mc:e4mc-forge:[6.2.3,6.2.4)') {
         jarJar.pin(it, '6.2.3')
     }
+}
+
+mixin {
+    add sourceSets.main, 'opentogether.refmap.json'
+    config 'opentogether.mixins.json'
+}
+
+tasks.withType(Jar).configureEach {
+    manifest.attributes('MixinConfigs': 'opentogether.mixins.json')
 }
 
 tasks.withType(JavaCompile).configureEach {

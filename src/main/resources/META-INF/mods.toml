@@ -3,9 +3,9 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="opentogether"
-version="0.5.0-alpha"
+version="0.6.0-alpha"
 displayName="OpenTogether"
-description='''Single-JAR build with bundled MIT-licensed e4mc 6.2.3 tunnel for Minecraft friends.'''
+description='''Single-JAR friend invites with embedded e4mc and automatic address capture.'''
 [[dependencies.opentogether]]
 modId="forge"
 mandatory=true
