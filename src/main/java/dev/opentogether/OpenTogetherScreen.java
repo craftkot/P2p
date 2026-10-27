@@ -20,7 +20,7 @@ import net.minecraftforge.fml.ModList;
  * service or automatically installs other mods.
  */
 final class OpenTogetherScreen extends Screen {
-    private static final String MOD_PAGE = "https://modrinth.com/mod/e4mc";
+    private static final String MOD_PAGE = "https://modrinth.com/mod/e4mc/version/6.2.3-forge";
     private final Screen previous;
     private final boolean inviting;
     private EditBox addressField;
