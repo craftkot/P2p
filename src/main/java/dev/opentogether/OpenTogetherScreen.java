@@ -38,7 +38,7 @@ final class OpenTogetherScreen extends Screen {
             CloudflareApi.call("GET","/resolve/"+v.toUpperCase(java.util.Locale.ROOT).replace(" ",""),"");
         f.whenComplete((json,error)->Minecraft.getInstance().execute(()->{
             if(error!=null) {status="Ошибка: "+error.getClass().getSimpleName()+" (см. latest.log)";
-                CloudflareApi.LOG.warn("[OpenTogether] invitation failure",error);return;}
+                CloudflareApi.LOG.warn("[OpenTogether] invitation failure type={}",error.getClass().getSimpleName());return;}
             if(inviting){String code=json.get("code").getAsString();minecraft.keyboardHandler.setClipboard(code);
                 status="Код "+code+" скопирован. Действует 10 мин.";
                 CloudflareApi.LOG.info("[OpenTogether] invite created (code redacted)");
@@ -47,7 +47,7 @@ final class OpenTogetherScreen extends Screen {
                 try {ServerAddress addr=ServerAddress.parseString(endpoint);
                     ServerData data=new ServerData("OpenTogether friend",endpoint,false);
                     ConnectScreen.startConnecting(previous,minecraft,addr,data,false);
-                }catch(Exception ex){status="Некорректный адрес";CloudflareApi.LOG.warn("[OpenTogether] connect",ex);}
+                }catch(Exception ex){status="Некорректный адрес";CloudflareApi.LOG.warn("[OpenTogether] connection setup failed type={}",ex.getClass().getSimpleName());}
             }
         }));
     }
