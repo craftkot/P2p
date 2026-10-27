@@ -3,9 +3,9 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="opentogether"
-version="0.2.0-alpha"
+version="0.3.0-alpha"
 displayName="OpenTogether"
-description='''Minecraft friend invitation codes backed by Cloudflare. Direct TCP only in alpha.'''
+description='''Cloudflare invite codes, in-game settings and UDP diagnostics; public TCP access required.'''
 [[dependencies.opentogether]]
 modId="forge"
 mandatory=true
