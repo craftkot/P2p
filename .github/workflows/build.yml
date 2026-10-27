@@ -31,6 +31,8 @@ jobs:
         with:
           gradle-version: '8.8'
       - run: node --check cloudflare/src/index.js
+      - name: Test Cloudflare invitations
+        run: node --test cloudflare/test/*.test.mjs
       - name: Build Forge mod
         run: gradle --no-daemon build --stacktrace --info
       - uses: actions/upload-artifact@v4
