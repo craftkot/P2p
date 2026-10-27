@@ -32,13 +32,26 @@ final class OpenTogetherScreen extends Screen {
     private void action() {
         String v=entry.getValue().trim();
         if(v.isEmpty()){status="Введите "+(inviting?"адрес сервера":"код");return;}
+        if (!inviting) {
+            String compact=v.toUpperCase(java.util.Locale.ROOT).replaceAll("[\\\\s-]","");
+            if (!compact.matches("[A-HJ-NP-Z2-9]{8}")) { status="Ожидается код из 8 символов"; return; }
+            v=compact.substring(0,4)+"-"+compact.substring(4);
+        }
         status="Запрос к Cloudflare...";
+        final String codeOrEndpoint=v;
         var f=inviting?
-            CloudflareApi.call("POST","/create","{\"endpoint\":\""+escape(v)+"\"}"):
-            CloudflareApi.call("GET","/resolve/"+v.toUpperCase(java.util.Locale.ROOT).replace(" ",""),"");
+            CloudflareApi.call("POST","/create","{\"endpoint\":\""+escape(codeOrEndpoint)+"\"}"):
+            CloudflareApi.call("GET","/resolve/"+codeOrEndpoint,"");
         f.whenComplete((json,error)->Minecraft.getInstance().execute(()->{
-            if(error!=null) {status="Ошибка: "+error.getClass().getSimpleName()+" (см. latest.log)";
-                CloudflareApi.LOG.warn("[OpenTogether] invitation failure type={}",error.getClass().getSimpleName());return;}
+            if(error!=null) {
+                Throwable root=error;
+                while (root.getCause()!=null && root.getCause()!=root) root=root.getCause();
+                String message=root.getMessage();
+                if(message!=null && message.contains("HTTP 404")) status="Код не найден или истёк";
+                else if(message!=null && message.contains("HTTP 429")) status="Слишком много запросов. Попробуй позже";
+                else if(message!=null && message.contains("HTTP 400")) status="Некорректный адрес или код";
+                else status="Ошибка соединения с Cloudflare (см. latest.log)";
+                CloudflareApi.LOG.warn("[OpenTogether] invitation failed rootType={}",root.getClass().getSimpleName());return;}
             if(inviting){String code=json.get("code").getAsString();minecraft.keyboardHandler.setClipboard(code);
                 status="Код "+code+" скопирован. Действует 10 мин.";
                 CloudflareApi.LOG.info("[OpenTogether] invite created (code redacted)");
