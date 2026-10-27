@@ -1,0 +1,43 @@
+version: 2.1
+
+jobs:
+  build-forge:
+    docker:
+      - image: cimg/openjdk:17.0
+    resource_class: medium
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Download verified Gradle distribution
+          command: |
+            curl -fL --retry 3 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.8-bin.zip
+            unzip -q /tmp/gradle.zip -d /tmp
+            /tmp/gradle-8.8/bin/gradle --version
+      - restore_cache:
+          keys:
+            - gradle-v1-{{ checksum "build.gradle" }}
+            - gradle-v1-
+      - run:
+          name: Compile Forge 1.20.1 mod
+          command: |
+            /tmp/gradle-8.8/bin/gradle --no-daemon clean build --stacktrace --info 2>&1 | tee /tmp/opentogether-build.log
+      - save_cache:
+          key: gradle-v1-{{ checksum "build.gradle" }}
+          paths:
+            - ~/.gradle/caches
+            - ~/.gradle/wrapper
+      - store_artifacts:
+          path: build/libs
+          destination: opentogether-jars
+      - store_artifacts:
+          path: /tmp/opentogether-build.log
+          destination: build.log
+      - store_artifacts:
+          path: build/reports
+          destination: reports
+
+workflows:
+  forge-ci:
+    jobs:
+      - build-forge
