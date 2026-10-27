@@ -25,6 +25,9 @@ jobs:
             javac --release 17 -d /tmp/opentogether-stun src/main/java/dev/opentogether/StunProbe.java src/test/java/dev/opentogether/StunProbeTest.java
             java -cp /tmp/opentogether-stun dev.opentogether.StunProbeTest
       - run:
+          name: Stage built-in e4mc
+          command: bash ci/prepare-e4mc.sh
+      - run:
           name: Compile Forge 1.20.1 mod
           command: |
             /tmp/gradle-8.1.1/bin/gradle --no-daemon clean build --stacktrace --info 2>&1 | tee /tmp/opentogether-build.log
