@@ -1,28 +1,89 @@
-// OpenTogether code broker. It does NOT transport Minecraft packets.
-const ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const TTL=600000;
-function reply(o,s=200){return Response.json(o,{status:s,headers:{'cache-control':'no-store'}})}
-function code(){const b=new Uint8Array(8);crypto.getRandomValues(b);let s='';for(const n of b)s+=ALPHABET[n%ALPHABET.length];return s.slice(0,4)+'-'+s.slice(4)}
-function valid(e){if(typeof e!=='string'||e.length>254)return false;const i=e.lastIndexOf(':');if(i<1)return false;const host=e.slice(0,i),p=Number(e.slice(i+1));return /^[a-zA-Z0-9.-]+$/.test(host)&&!['localhost','0.0.0.0','127.0.0.1','::1'].includes(host.toLowerCase())&&Number.isInteger(p)&&p>0&&p<65536}
+// OpenTogether invitation broker; no Minecraft traffic passes through Cloudflare.
+const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const TTL_MS = 10 * 60 * 1000;
+const CREATE_LIMIT = 12; // per hour per source IP, experimental protection
+const RESOLVE_LIMIT = 90; // per minute per source IP
+function respond(body, status = 200) {
+  return Response.json(body, {status, headers: {'cache-control': 'no-store', 'x-content-type-options': 'nosniff'}});
+}
+function newCode() {
+  // Rejection sampling avoids modulo bias.
+  const chars = [];
+  while (chars.length < 8) {
+    const random = new Uint8Array(16);
+    crypto.getRandomValues(random);
+    for (const b of random) {
+      if (b >= 224) continue; // 224 is divisible by 32
+      chars.push(ALPHABET[b % 32]);
+      if (chars.length === 8) break;
+    }
+  }
+  return chars.slice(0, 4).join('') + '-' + chars.slice(4).join('');
+}
+function validEndpoint(endpoint) {
+  if (typeof endpoint !== 'string' || endpoint.length > 253) return false;
+  const m = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?):([0-9]{1,5})$/i.exec(endpoint);
+  if (!m) return false;
+  const host = m[1].toLowerCase(), port = Number(m[2]);
+  if (port < 1 || port > 65535 || !Number.isInteger(port)) return false;
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '0.0.0.0' ||
+      host.startsWith('127.') || host.startsWith('169.254.') || host.startsWith('192.168.') ||
+      host.startsWith('10.') || host.startsWith('172.16.') || host.startsWith('172.17.') ||
+      host.startsWith('172.18.') || host.startsWith('172.19.') || /^172\.(2[0-9]|3[01])\./.test(host)) return false;
+  return !host.includes('..');
+}
 export class Rooms {
-  constructor(state){this.storage=state.storage}
-  async fetch(req){
-    const u=new URL(req.url),s=u.pathname.split('/').filter(Boolean);
-    if(s[0]==='create'&&req.method==='POST'){
-      const raw=await req.text();if(raw.length>4096)return reply({error:'LARGE_BODY'},413);
-      let body;try{body=JSON.parse(raw)}catch{return reply({error:'BAD_JSON'},400)}
-      if(!valid(body.endpoint))return reply({error:'BAD_ENDPOINT'},400);
-      let c;for(let i=0;i<8;i++){const v=code();if(!await this.storage.get(v)){c=v;break}}
-      if(!c)return reply({error:'COLLISION'},503);
-      await this.storage.put(c,{endpoint:body.endpoint,expires:Date.now()+TTL});
-      return reply({code:c,expiresAt:Date.now()+TTL},201);
+  constructor(state) { this.storage = state.storage; }
+  async limited(ip, scope, count, interval) {
+    if (!ip) return false;
+    const key = 'limit:' + scope + ':' + ip;
+    const now = Date.now();
+    const old = await this.storage.get(key);
+    const next = old && old.until > now ? {until: old.until, count: old.count + 1} : {until: now + interval, count: 1};
+    await this.storage.put(key, next, {expirationTtl: Math.max(60, Math.ceil((next.until - now)/1000))});
+    return next.count > count;
+  }
+  async fetch(request) {
+    const url = new URL(request.url), parts = url.pathname.split('/').filter(Boolean);
+    const action = parts[0], ip = request.headers.get('x-ot-client-ip') || '';
+    if (action === 'create' && request.method === 'POST') {
+      if (await this.limited(ip, 'create', CREATE_LIMIT, 3600000)) return respond({error: 'RATE_LIMIT'}, 429);
+      const raw = await request.text();
+      if (raw.length > 4096) return respond({error: 'LARGE_BODY'}, 413);
+      let data;
+      try {data = JSON.parse(raw);} catch {return respond({error: 'BAD_JSON'}, 400);}
+      if (!validEndpoint(data?.endpoint)) return respond({error: 'BAD_ENDPOINT'}, 400);
+      for (let tries = 0; tries < 12; tries++) {
+        const code = newCode();
+        if (await this.storage.get('room:' + code)) continue;
+        const expires = Date.now() + TTL_MS;
+        await this.storage.put('room:' + code, {endpoint: data.endpoint, expires},
+          {expirationTtl: Math.ceil(TTL_MS / 1000)});
+        return respond({code, expiresAt: expires}, 201);
+      }
+      return respond({error: 'RETRY'}, 503);
     }
-    if(s[0]==='resolve'&&req.method==='GET'){
-      const c=(s[1]||'').toUpperCase();if(!/^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(c))return reply({error:'BAD_CODE'},400);
-      const r=await this.storage.get(c);if(!r||Date.now()>r.expires)return reply({error:'NOT_FOUND'},404);
-      return reply({endpoint:r.endpoint,expiresAt:r.expires});
+    if (action === 'resolve' && request.method === 'GET') {
+      if (await this.limited(ip, 'resolve', RESOLVE_LIMIT, 60000)) return respond({error: 'RATE_LIMIT'}, 429);
+      const code = (parts[1] || '').toUpperCase();
+      if (!/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(code) || parts.length !== 2)
+        return respond({error: 'BAD_CODE'}, 400);
+      const room = await this.storage.get('room:' + code);
+      if (!room || room.expires <= Date.now()) return respond({error: 'NOT_FOUND'}, 404);
+      return respond({endpoint: room.endpoint, expiresAt: room.expires});
     }
-    return reply({error:'NOT_FOUND'},404)
+    return respond({error: 'NOT_FOUND'}, 404);
   }
 }
-export default {async fetch(req,env){const u=new URL(req.url);if(u.pathname==='/health')return reply({ok:true,relaysGameTraffic:false});const id=env.ROOMS.idFromName('rooms-v1');return env.ROOMS.get(id).fetch(req)}};
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.pathname === '/health') return respond({ok: true, relaysGameTraffic: false});
+    if (!['/create'].includes(url.pathname) && !url.pathname.startsWith('/resolve/'))
+      return respond({error: 'NOT_FOUND'}, 404);
+    const id = env.ROOMS.idFromName('rooms-v1');
+    const h = new Headers(request.headers);
+    h.set('x-ot-client-ip', request.headers.get('cf-connecting-ip') || '');
+    return env.ROOMS.get(id).fetch(new Request(request, {headers: h}));
+  }
+};
