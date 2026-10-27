@@ -33,7 +33,7 @@ final class OpenTogetherScreen extends Screen {
         String v=entry.getValue().trim();
         if(v.isEmpty()){status="Введите "+(inviting?"адрес сервера":"код");return;}
         if (!inviting) {
-            String compact=v.toUpperCase(java.util.Locale.ROOT).replaceAll("[\\\\s-]","");
+            String compact=v.toUpperCase(java.util.Locale.ROOT).replace(" ","").replace("-","");
             if (!compact.matches("[A-HJ-NP-Z2-9]{8}")) { status="Ожидается код из 8 символов"; return; }
             v=compact.substring(0,4)+"-"+compact.substring(4);
         }
