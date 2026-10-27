@@ -3,9 +3,9 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="opentogether"
-version="0.6.0-alpha"
+version="0.7.0-alpha"
 displayName="OpenTogether"
-description='''Single-JAR friend invites with embedded e4mc and automatic address capture.'''
+description='''One-file LAN invitations with chunk load diagnostics and embedded e4mc.'''
 [[dependencies.opentogether]]
 modId="forge"
 mandatory=true
