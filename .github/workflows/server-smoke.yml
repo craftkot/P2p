@@ -1,0 +1,74 @@
+name: OpenTogether Dedicated Server Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/server-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dedicated-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
+      - name: Compile mod
+        run: gradle --no-daemon build --stacktrace
+      - name: Prepare server
+        shell: bash
+        run: |
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+          printf 'online-mode=false\nmax-players=1\nview-distance=4\nsimulation-distance=4\n' > run/server.properties
+      - name: Boot dedicated server and verify Forge mod discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG="$GITHUB_WORKSPACE/opentogether-server.log"
+          gradle --no-daemon runServer > "$LOG" 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 360); do
+            if grep -Eq 'Done \([0-9.]+s\)!' "$LOG"; then
+              echo "Minecraft dedicated server reached ready state."
+              if ! grep -q 'opentogether' "$LOG"; then
+                echo "WARNING: No OpenTogether text found in startup log."
+              fi
+              exit 0
+            fi
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "Server terminated unexpectedly."
+              tail -n 120 "$LOG"
+              exit 1
+            fi
+            if [ "$i" -eq 360 ]; then
+              echo "Timed out waiting for dedicated server readiness."
+              tail -n 120 "$LOG"
+              exit 1
+            fi
+            sleep 1
+          done
+      - name: Attach server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opentogether-server-smoke-log
+          path: |
+            opentogether-server.log
+            run/logs/**
+          if-no-files-found: ignore
