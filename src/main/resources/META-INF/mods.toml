@@ -3,9 +3,9 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="opentogether"
-version="0.3.0-alpha"
+version="0.4.0-alpha"
 displayName="OpenTogether"
-description='''Cloudflare invite codes, in-game settings and UDP diagnostics; public TCP access required.'''
+description='''Invite friends to LAN worlds via optional e4mc relay; no Cloudflare configuration required.'''
 [[dependencies.opentogether]]
 modId="forge"
 mandatory=true
