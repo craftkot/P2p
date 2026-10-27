@@ -32,3 +32,12 @@ GitHub Actions: `.github/workflows/build.yml`. Альтернативный CI: 
 ## Логи
 
 `logs/latest.log`: ищи `[OpenTogether]`. Публикуя логи, удали адреса, коды, токены, если они присутствуют.
+
+
+## Обновления STUN и сборки
+
+- Добавлена кнопка «Проверить P2P / UDP», которая отправляет STUN Binding Request по UDP и оценивает задержку. **Это диагностика, а не установка соединения с другим игроком**.
+- STUN-парсер проверяет magic cookie, идентификатор транзакции и корректность IPv4 XOR-MAPPED-ADDRESS; внешний адрес из ответа не записывается в логи.
+- Локальный тест Java: `javac --release 17 -d out src/main/java/dev/opentogether/StunProbe.java src/test/java/dev/opentogether/StunProbeTest.java`, затем `java -cp out dev.opentogether.StunProbeTest`.
+- Локальная сборка на Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-local.ps1`. Потребуются JDK 17 и доступ к Maven Forge для загрузки зависимостей. Скрипт скачивает официальный Gradle 8.8 и выполняет `clean build`. Результат, если сборка успешна: `build/libs`.
+- **Пока нет подтверждённой сборки мода и проверки загрузки в реальном Minecraft.** Предыдущий JAR диагностики 0.1.0 имел несовместимость Forge, поэтому его нельзя использовать для оценки нового проекта.
