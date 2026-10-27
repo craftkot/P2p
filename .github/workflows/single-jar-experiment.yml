@@ -21,6 +21,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.1.1'
+      - name: Download and check official e4mc release
+        run: bash ci/prepare-e4mc.sh
       - name: Build nested e4mc Forge bundle
         run: gradle --no-daemon clean jarJar --stacktrace
       - name: Inspect nested e4mc metadata
