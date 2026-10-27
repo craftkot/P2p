@@ -32,7 +32,7 @@ final class OpenTogetherScreen extends Screen {
         status="Запрос к Cloudflare...";
         var f=inviting?
             CloudflareApi.call("POST","/create","{\"endpoint\":\""+escape(v)+"\"}"):
-            CloudflareApi.call("GET","/resolve/"+v.toUpperCase(java.util.Locale.ROOT),"");
+            CloudflareApi.call("GET","/resolve/"+v.toUpperCase(java.util.Locale.ROOT).replace(" ",""),"");
         f.whenComplete((json,error)->Minecraft.getInstance().execute(()->{
             if(error!=null) {status="Ошибка: "+error.getClass().getSimpleName()+" (см. latest.log)";
                 CloudflareApi.LOG.warn("[OpenTogether] invitation failure",error);return;}
@@ -51,7 +51,7 @@ final class OpenTogetherScreen extends Screen {
     private static String escape(String s){return s.replace("\\","\\\\").replace("\"","\\\"");}
     @Override public void render(GuiGraphics g,int mx,int my,float partial){renderBackground(g);super.render(g,mx,my,partial);
         g.drawCenteredString(font,inviting?"Пригласить в мир":"Подключиться к другу",width/2,height/2-56,0xffffff);
-        g.drawCenteredString(font,status,width/2,height/2+52,0xdddddd);
+        g.drawCenteredString(font,status.length()>62?status.substring(0,62):status,width/2,height/2+52,0xdddddd);
         if(inviting)g.drawCenteredString(font,"Сначала открой мир для LAN и настрой доступный извне порт",width/2,height/2+70,0xffbb66);
     }
     @Override public boolean isPauseScreen(){return false;}
