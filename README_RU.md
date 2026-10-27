@@ -13,11 +13,15 @@
 
 ## Чего пока нет
 
-**P2P/NAT traversal и ретранслятор не реализованы.** Другая сторона сможет зайти только к хосту с реально доступным TCP-адресом и открытым портом. Нет загрузки списка друзей из Mojang и отправки приглашений по нику. Cloudflare Worker не развёрнут. GUI и мод ещё не проверены реальным запуском Minecraft. Не публикуйте API для широкой аудитории: антиабьюз упрощённый.
+**P2P/NAT traversal и ретранслятор не реализованы.** Другая сторона сможет зайти только к хосту с реально доступным TCP-адресом и открытым портом. Нет загрузки списка друзей из Mojang и отправки приглашений по нику. Cloudflare Worker не развёрнут. Выделенный Forge-сервер загрузил мод успешно; клиентский интерфейс в игре пока не проверен. Не публикуйте API для широкой аудитории: антиабьюз упрощённый.
 
 ## Сборка
 
-GitHub Actions: `.github/workflows/build.yml`. Альтернативный CI: `.circleci/config.yml`. Приватный GitHub Actions runner сейчас не запускает задания, поэтому **готового проверенного JAR пока нет**.
+GitHub Actions: `.github/workflows/build.yml`. Альтернативный CI: `.circleci/config.yml`.
+
+**Сборка JAR успешно прошла**: https://github.com/craftkot/P2p/actions/runs/40524945862 — скачай артефакт `opentogether-build`, внутри `libs/opentogether-forge-1.20.1-0.2.0-alpha.jar`. Чтобы установить мод, помести JAR в папку `mods` профиля Minecraft 1.20.1 Forge 47.x. Старый JAR `OpenTogether Diagnostics` удалите из `mods`, если установлен.
+
+**Серверный smoke-test успешен**: https://github.com/craftkot/P2p/actions/runs/40525508362. Сервер стартовал, Forge обнаружил и загрузил `opentogether` версии `0.2.0-alpha`. GUI клиента ещё требует ручной проверки.
 
 ## Cloudflare
 
@@ -39,5 +43,5 @@ GitHub Actions: `.github/workflows/build.yml`. Альтернативный CI: 
 - Добавлена кнопка «Проверить P2P / UDP», которая отправляет STUN Binding Request по UDP и оценивает задержку. **Это диагностика, а не установка соединения с другим игроком**.
 - STUN-парсер проверяет magic cookie, идентификатор транзакции и корректность IPv4 XOR-MAPPED-ADDRESS; внешний адрес из ответа не записывается в логи.
 - Локальный тест Java: `javac --release 17 -d out src/main/java/dev/opentogether/StunProbe.java src/test/java/dev/opentogether/StunProbeTest.java`, затем `java -cp out dev.opentogether.StunProbeTest`.
-- Локальная сборка на Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-local.ps1`. Потребуются JDK 17 и доступ к Maven Forge для загрузки зависимостей. Скрипт скачивает официальный Gradle 8.8 и выполняет `clean build`. Результат, если сборка успешна: `build/libs`.
-- **Пока нет подтверждённой сборки мода и проверки загрузки в реальном Minecraft.** Предыдущий JAR диагностики 0.1.0 имел несовместимость Forge, поэтому его нельзя использовать для оценки нового проекта.
+- Локальная сборка на Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-local.ps1`. Потребуются JDK 17 и доступ к Maven Forge для загрузки зависимостей. Скрипт скачивает официальный Gradle 8.1.1 и выполняет `clean build`. Результат, если сборка успешна: `build/libs`.
+- **Сборка JAR и загрузка на выделенном сервере подтверждены через GitHub Actions.** Клиентский GUI, создание приглашения в живом мире и подключение другого игрока пока не протестированы. Предыдущий JAR диагностики 0.1.0 имел несовместимость Forge — не используйте его.
