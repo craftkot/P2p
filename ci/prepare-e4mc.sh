@@ -20,7 +20,7 @@ if not (100000 <= os.path.getsize(p) <= 15000000):
 with zipfile.ZipFile(p) as z:
     mods=z.read("META-INF/mods.toml").decode('utf-8')
     import re
-    assert re.search(r'modId\s*=\s*["\\']e4mc["\\']', mods), 'Unexpected mod ID'
+    assert re.search(r'modId\s*=\s*"e4mc"', mods), 'Unexpected mod ID'
 print("e4mc upstream SHA256:", hashlib.sha256(open(p,'rb').read()).hexdigest())
 PY
 cat > "$MAVEN/e4mc-forge-6.2.3.pom" <<'EOF'
