@@ -3,7 +3,7 @@ const ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const TTL=600000;
 function reply(o,s=200){return Response.json(o,{status:s,headers:{'cache-control':'no-store'}})}
 function code(){const b=new Uint8Array(8);crypto.getRandomValues(b);let s='';for(const n of b)s+=ALPHABET[n%ALPHABET.length];return s.slice(0,4)+'-'+s.slice(4)}
-function valid(e){if(typeof e!=='string'||e.length>254)return false;const i=e.lastIndexOf(':');if(i<1)return false;const host=e.slice(0,i),p=Number(e.slice(i+1));return /^[a-zA-Z0-9.-]+$/.test(host)&&Number.isInteger(p)&&p>0&&p<65536}
+function valid(e){if(typeof e!=='string'||e.length>254)return false;const i=e.lastIndexOf(':');if(i<1)return false;const host=e.slice(0,i),p=Number(e.slice(i+1));return /^[a-zA-Z0-9.-]+$/.test(host)&&!['localhost','0.0.0.0','127.0.0.1','::1'].includes(host.toLowerCase())&&Number.isInteger(p)&&p>0&&p<65536}
 export class Rooms {
   constructor(state){this.storage=state.storage}
   async fetch(req){
