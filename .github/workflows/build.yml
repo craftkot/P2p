@@ -62,7 +62,7 @@ jobs:
       - name: Verify nested e4mc exists
         run: |
           python3 - <<'PY'
-          import glob,zipfile,io
+          import glob,zipfile,io,json
           jars=glob.glob('build/libs/*-all.jar')
           assert len(jars)==1, jars
           with zipfile.ZipFile(jars[0]) as z:
@@ -71,6 +71,8 @@ jobs:
             assert 'licenses/e4mc-MIT.txt' in z.namelist()
             assert 'MixinConfigs: opentogether.mixins.json' in z.read('META-INF/MANIFEST.MF').decode('utf-8')
             assert 'opentogether.mixins.json' in z.namelist()
+            refmap=json.loads(z.read('opentogether.refmap.json'))
+            assert refmap.get('mappings', {}).get('dev/opentogether/mixin/ChatMessageMixin'), 'Production mixin refmap missing'
             assert 'version="0.6.0-alpha"' in z.read('META-INF/mods.toml').decode()
             with zipfile.ZipFile(io.BytesIO(z.read(nest[0]))) as inner:
               assert 'modId = "e4mc"' in inner.read('META-INF/mods.toml').decode()
