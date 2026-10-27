@@ -23,9 +23,15 @@ public final class OpenTogetherMenus {
                 org.slf4j.LoggerFactory.getLogger("OpenTogether").info("[OpenTogether] Title-screen friend button registered");
             }
         }
-        if(screen instanceof PauseScreen && Minecraft.getInstance().getSingleplayerServer() != null) {
-            e.addListener(Button.builder(Component.literal("Пригласить друга"), b->Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen,true)))
-                    .bounds(screen.width-174,6,166,20).build());
+        if (screen instanceof PauseScreen && Minecraft.getInstance().level != null) {
+            if (Minecraft.getInstance().getSingleplayerServer() != null) {
+                e.addListener(Button.builder(Component.literal("Пригласить друга"),
+                        b -> Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen, true)))
+                        .bounds(screen.width - 174, 6, 166, 20).build());
+            }
+            e.addListener(Button.builder(Component.literal("Диагностика чанков"),
+                    b -> Minecraft.getInstance().setScreen(new ChunkDiagnosticsScreen(screen)))
+                    .bounds(screen.width - 174, 30, 166, 20).build());
         }
     }
 }
