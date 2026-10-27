@@ -11,9 +11,9 @@ jobs:
       - run:
           name: Download verified Gradle distribution
           command: |
-            curl -fL --retry 3 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.8-bin.zip
+            curl -fL --retry 3 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.1.1-bin.zip
             unzip -q /tmp/gradle.zip -d /tmp
-            /tmp/gradle-8.8/bin/gradle --version
+            /tmp/gradle-8.1.1/bin/gradle --version
       - restore_cache:
           keys:
             - gradle-v1-{{ checksum "build.gradle" }}
@@ -27,7 +27,7 @@ jobs:
       - run:
           name: Compile Forge 1.20.1 mod
           command: |
-            /tmp/gradle-8.8/bin/gradle --no-daemon clean build --stacktrace --info 2>&1 | tee /tmp/opentogether-build.log
+            /tmp/gradle-8.1.1/bin/gradle --no-daemon clean build --stacktrace --info 2>&1 | tee /tmp/opentogether-build.log
       - save_cache:
           key: gradle-v1-{{ checksum "build.gradle" }}
           paths:
