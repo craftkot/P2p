@@ -1,0 +1,7 @@
+.gradle/
+build/
+run/
+.idea/
+*.iml
+node_modules/
+cloudflare/.wrangler/
