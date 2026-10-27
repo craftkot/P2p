@@ -49,12 +49,12 @@ final class OpenTogetherScreen extends Screen {
                                     : "Ожидаем адрес от встроенного e4mc...";
                         }).bounds(x, y + 28, 280, 20).build());
                 copyButton.active = FriendInvites.getPublishedDomain() != null;
-                if (copyButton.active) {
-                    FriendInvites.requestCopy();
-                    status = "Адрес скопирован. Отправь его другу.";
-                } else {
-                    status = "Подключаемся к сети e4mc...";
-                }
+                // Opening the invitation screen is an explicit request to share.
+                // If the broker is still connecting, copy as soon as it assigns a domain.
+                FriendInvites.requestCopy();
+                status = copyButton.active
+                        ? "Адрес уже скопирован. Отправь его другу."
+                        : "Подключаемся к сети e4mc; скопируем адрес автоматически...";
             }
             addRenderableWidget(Button.builder(Component.literal("Вернуться в игру"),
                     b -> minecraft.setScreen(null)).bounds(x, y + 55, 280, 20).build());
@@ -131,7 +131,9 @@ final class OpenTogetherScreen extends Screen {
             if (copyButton != null) copyButton.active = domain != null;
             if (domain != null) {
                 g.drawCenteredString(font, domain, mid, height / 2 - 21, 0x99FF99);
-                status = "Нажми «Скопировать» и отправь другу";
+                if (!status.startsWith("Адрес уже скопирован") && !status.startsWith("Адрес скопирован")) {
+                    status = "Адрес готов. Нажми «Скопировать» или отправь другу.";
+                }
             }
         }
         g.drawCenteredString(font, status.length() > 68 ? status.substring(0, 68) : status,
