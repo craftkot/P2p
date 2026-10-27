@@ -1,0 +1,54 @@
+name: Experimental Single-JAR e4mc Bundling
+
+on:
+  push:
+    branches: ['feature/single-jar-e4mc']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
+      - name: Build nested e4mc Forge bundle
+        run: gradle --no-daemon clean jarJar --stacktrace
+      - name: Inspect nested e4mc metadata
+        run: |
+          python3 - <<'PY'
+          import zipfile,glob,json,io,sys
+          paths=glob.glob('build/libs/*-all.jar')
+          assert len(paths)==1,paths
+          with zipfile.ZipFile(paths[0]) as z:
+              names=z.namelist()
+              meta=[p for p in names if p.endswith('/jarjar/metadata.json')]
+              nested=[p for p in names if p.startswith('META-INF/jarjar/') and p.endswith('.jar')]
+              print('META:',meta, 'NESTED:',nested)
+              assert meta and nested,(meta,nested)
+              payload=z.read(meta[0]);print(payload.decode()[:4000])
+              mod_count=0
+              for name in nested:
+                  with zipfile.ZipFile(io.BytesIO(z.read(name))) as inner:
+                      if 'META-INF/mods.toml' in inner.namelist():
+                          t=inner.read('META-INF/mods.toml').decode('utf-8',errors='replace')
+                          print(name, t[:700])
+                          if 'e4mc' in t: mod_count+=1
+              assert mod_count==1,'e4mc not recognized within nested JAR'
+              assert 'licenses/e4mc-MIT.txt' in names
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: opentogether-singlejar-experimental
+          path: build/libs/*-all.jar
+          if-no-files-found: error
