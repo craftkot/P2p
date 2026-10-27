@@ -11,6 +11,10 @@ on:
       - '.github/workflows/server-smoke.yml'
   workflow_dispatch:
 
+concurrency:
+  group: opentogether-server-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
