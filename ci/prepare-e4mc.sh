@@ -21,7 +21,10 @@ with zipfile.ZipFile(p) as z:
     mods=z.read("META-INF/mods.toml").decode('utf-8')
     import re
     assert re.search(r'modId\s*=\s*"e4mc"', mods), 'Unexpected mod ID'
-print("e4mc upstream SHA256:", hashlib.sha256(open(p,'rb').read()).hexdigest())
+digest = hashlib.sha256(open(p,'rb').read()).hexdigest()
+expected = '3313a4087661a2678dcf0c26f45bb5a44aed45ad7a36b86878f60bbe1defa6b3'
+assert digest == expected, f'Unrecognized upstream e4mc JAR SHA256: {digest}'
+print("Verified e4mc 6.2.3 upstream SHA256:", digest)
 PY
 cat > "$MAVEN/e4mc-forge-6.2.3.pom" <<'EOF'
 <project xmlns="http://maven.apache.org/POM/4.0.0">
