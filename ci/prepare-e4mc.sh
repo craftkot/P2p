@@ -32,4 +32,16 @@ cat > "$MAVEN/e4mc-forge-6.2.3.pom" <<'EOF'
   <packaging>jar</packaging>
 </project>
 EOF
+cat > ".e4mc-vendor/link/e4mc/e4mc-forge/maven-metadata.xml" <<'EOF'
+<metadata>
+  <groupId>link.e4mc</groupId>
+  <artifactId>e4mc-forge</artifactId>
+  <versioning>
+    <latest>6.2.3</latest>
+    <release>6.2.3</release>
+    <versions><version>6.2.3</version></versions>
+    <lastUpdated>20261001000000</lastUpdated>
+  </versioning>
+</metadata>
+EOF
 echo "e4mc staged for Gradle Forge JarJar."
