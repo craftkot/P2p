@@ -3,7 +3,9 @@ group = 'dev.opentogether'
 version = '0.2.0-alpha'
 base { archivesName = 'opentogether' }
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
-minecraft { mappings channel: 'official', version: '1.20.1'; copyIdeResources = true }
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+}
 repositories { mavenCentral() }
 dependencies { minecraft 'net.minecraftforge:forge:1.20.1-47.4.28' }
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
