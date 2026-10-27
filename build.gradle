@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'dev.opentogether'
-version = '0.5.0-alpha'
+version = '0.6.0-alpha'
 
 base {
     archivesName = 'opentogether-forge-1.20.1'
@@ -45,6 +45,10 @@ dependencies {
     jarJar('link.e4mc:e4mc-forge:[6.2.3,6.2.4)') {
         jarJar.pin(it, '6.2.3')
     }
+}
+
+tasks.withType(Jar).configureEach {
+    manifest.attributes('MixinConfigs': 'opentogether.mixins.json')
 }
 
 tasks.withType(JavaCompile).configureEach {
