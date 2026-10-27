@@ -2,9 +2,11 @@ name: OpenTogether Client Smoke
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/auto-invite-clipboard]
     paths:
       - '.github/workflows/client-smoke.yml'
+      - 'src/**'
+      - 'build.gradle'
   workflow_dispatch:
 
 permissions:
@@ -37,6 +39,8 @@ jobs:
           Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset >xvfb.log 2>&1 &
           sleep 3
           glxinfo -B
+      - name: Stage built-in e4mc
+        run: bash ci/prepare-e4mc.sh
       - name: Compile Forge client mod
         run: gradle --no-daemon build --stacktrace
       - name: Boot real Minecraft client and capture a screenshot
