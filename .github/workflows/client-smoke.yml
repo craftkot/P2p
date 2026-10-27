@@ -42,13 +42,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p client-smoke
-          timeout 240s gradle --no-daemon runClient --stacktrace > client-smoke/console.log 2>&1 &
+          timeout 420s gradle --no-daemon runClient --stacktrace > client-smoke/console.log 2>&1 &
           LAUNCH_PID=$!
           trap 'kill "$LAUNCH_PID" 2>/dev/null || true' EXIT
-          for i in $(seq 1 130); do
-            if xdotool search --name 'Minecraft' > /tmp/opentogether-windows 2>/dev/null; then
-              echo "Minecraft window detected"
-              sleep 10
+          for i in $(seq 1 180); do
+            if [ -f run/logs/latest.log ] && grep -q 'Title-screen friend button registered' run/logs/latest.log \
+                && xdotool search --name 'Minecraft' > /tmp/opentogether-windows 2>/dev/null; then
+              echo "OpenTogether button registered on actual Minecraft title screen"
+              sleep 12
               if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
                 tail -n 100 client-smoke/console.log
                 echo "Client exited after initial window appeared"
@@ -56,7 +57,7 @@ jobs:
               fi
               scrot client-smoke/minecraft-title.png
               test -s client-smoke/minecraft-title.png
-              echo "Headless Forge client reached a visible window and screenshot was captured"
+              echo "Headless Forge client reached its title screen and registered the OpenTogether button"
               exit 0
             fi
             if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
@@ -66,7 +67,7 @@ jobs:
             fi
             sleep 2
           done
-          echo "Client window not visible before smoke-test timeout"
+          echo "Client did not register OpenTogether on the title screen before timeout"
           tail -n 140 client-smoke/console.log
           exit 1
       - name: Attach screenshot, console and crash reports
