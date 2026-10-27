@@ -1,0 +1,82 @@
+name: OpenTogether Client Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/client-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DISPLAY: ':99'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
+      - name: Install headless OpenGL display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xdotool scrot mesa-utils libgl1-mesa-dri
+          Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset >xvfb.log 2>&1 &
+          sleep 3
+          glxinfo -B
+      - name: Compile Forge client mod
+        run: gradle --no-daemon build --stacktrace
+      - name: Boot real Minecraft client and capture a screenshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p client-smoke
+          timeout 240s gradle --no-daemon runClient --stacktrace > client-smoke/console.log 2>&1 &
+          LAUNCH_PID=$!
+          trap 'kill "$LAUNCH_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 130); do
+            if xdotool search --name 'Minecraft' > /tmp/opentogether-windows 2>/dev/null; then
+              echo "Minecraft window detected"
+              sleep 10
+              if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+                tail -n 100 client-smoke/console.log
+                echo "Client exited after initial window appeared"
+                exit 1
+              fi
+              scrot client-smoke/minecraft-title.png
+              test -s client-smoke/minecraft-title.png
+              echo "Headless Forge client reached a visible window and screenshot was captured"
+              exit 0
+            fi
+            if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+              echo "Client process ended before a Minecraft window appeared"
+              tail -n 140 client-smoke/console.log
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Client window not visible before smoke-test timeout"
+          tail -n 140 client-smoke/console.log
+          exit 1
+      - name: Attach screenshot, console and crash reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opentogether-client-smoke
+          path: |
+            client-smoke/**
+            xvfb.log
+            run/logs/**
+            run/crash-reports/**
+          if-no-files-found: warn
