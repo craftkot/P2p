@@ -32,7 +32,7 @@ final class OpenTogetherScreen extends Screen {
         status="Запрос к Cloudflare...";
         var f=inviting?
             CloudflareApi.call("POST","/create","{\"endpoint\":\""+escape(v)+"\"}"):
-            CloudflareApi.call("GET","/resolve/"+v.toUpperCase(),"");
+            CloudflareApi.call("GET","/resolve/"+v.toUpperCase(java.util.Locale.ROOT),"");
         f.whenComplete((json,error)->Minecraft.getInstance().execute(()->{
             if(error!=null) {status="Ошибка: "+error.getClass().getSimpleName()+" (см. latest.log)";
                 CloudflareApi.LOG.warn("[OpenTogether] invitation failure",error);return;}
@@ -42,7 +42,7 @@ final class OpenTogetherScreen extends Screen {
             } else {
                 String endpoint=json.get("endpoint").getAsString();
                 try {ServerAddress addr=ServerAddress.parseString(endpoint);
-                    ServerData data=new ServerData("OpenTogether friend",endpoint,ServerData.Type.OTHER);
+                    ServerData data=new ServerData("OpenTogether friend",endpoint,false);
                     ConnectScreen.startConnecting(previous,minecraft,addr,data,false);
                 }catch(Exception ex){status="Некорректный адрес";CloudflareApi.LOG.warn("[OpenTogether] connect",ex);}
             }
