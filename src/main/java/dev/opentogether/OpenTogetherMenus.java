@@ -20,7 +20,7 @@ public final class OpenTogetherMenus {
             e.addListener(Button.builder(Component.literal("Друзья / Подключиться"), b->Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen,false)))
                     .bounds(screen.width-174,6,166,20).build());
         }
-        if(screen instanceof PauseScreen && Minecraft.getInstance().hasSingleplayerServer()) {
+        if(screen instanceof PauseScreen && Minecraft.getInstance().getSingleplayerServer() != null) {
             e.addListener(Button.builder(Component.literal("Пригласить друга"), b->Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen,true)))
                     .bounds(screen.width-174,6,166,20).build());
         }
