@@ -19,6 +19,8 @@ public final class FriendInvites {
     private static final Logger LOG = LoggerFactory.getLogger("OpenTogether");
     private static volatile String publishedDomain;
     private static boolean copyWhenReady;
+    private static long copyRequestExpiresAt;
+    private static Object armedServer;
 
     private FriendInvites() {}
 
@@ -29,6 +31,8 @@ public final class FriendInvites {
     /** Called only when the host explicitly opens the invitation workflow. */
     public static void requestCopy() {
         copyWhenReady = true;
+        copyRequestExpiresAt = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(3);
+        armedServer = Minecraft.getInstance().getSingleplayerServer();
         String existing = publishedDomain;
         if (existing != null) copyNow(existing);
     }
@@ -50,24 +54,30 @@ public final class FriendInvites {
         if (domain == null) return;
         publishedDomain = domain;
         LOG.info("[OpenTogether] Friend invite address detected and ready to share");
-        if (copyWhenReady) copyNow(domain);
+        if (copyWhenReady && System.nanoTime() < copyRequestExpiresAt && armedServer == mc.getSingleplayerServer()) copyNow(domain);
     }
 
     private static void copyNow(String domain) {
         Minecraft.getInstance().keyboardHandler.setClipboard(domain);
         copyWhenReady = false;
+        armedServer = null;
         LOG.info("[OpenTogether] Friend invitation copied to clipboard");
     }
 
     public static void clear() {
         publishedDomain = null;
         copyWhenReady = false;
+        armedServer = null;
     }
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
+        if (copyWhenReady && (System.nanoTime() >= copyRequestExpiresAt || armedServer != mc.getSingleplayerServer())) {
+            copyWhenReady = false;
+            armedServer = null;
+        }
         if (mc.getSingleplayerServer() == null || !mc.getSingleplayerServer().isPublished()) {
             if (publishedDomain != null) clear();
         }
