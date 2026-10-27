@@ -5,3 +5,5 @@ run/
 *.iml
 node_modules/
 cloudflare/.wrangler/
+
+.e4mc-vendor/
