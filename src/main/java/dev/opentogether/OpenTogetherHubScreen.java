@@ -19,6 +19,8 @@ final class OpenTogetherHubScreen extends Screen {
 
     @Override
     protected void init() {
+        org.slf4j.LoggerFactory.getLogger("OpenTogether")
+                .info("[OpenTogether] Friends dashboard opened");
         int left = FriendsUiStyle.panelLeft(width), top = FriendsUiStyle.panelTop(height);
         int w = FriendsUiStyle.panelWidth(width);
         int bx = left + 16, bw = w - 32;
