@@ -1,0 +1,55 @@
+name: Verify OpenTogether WAN Compression
+on:
+  push:
+    branches: ['feature/wan-compression']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
+      - name: Test validated compression policy and synthetic data
+        run: |
+          mkdir -p build/network-tests
+          javac --release 17 -d build/network-tests src/main/java/dev/opentogether/CompressionPolicy.java src/test/java/dev/opentogether/CompressionPolicyTest.java
+          java -cp build/network-tests dev.opentogether.CompressionPolicyTest
+      - name: Stage official e4mc
+        run: bash ci/prepare-e4mc.sh
+      - name: Compile production Forge JarJar with mapped compression hook
+        run: gradle --no-daemon clean jarJar --stacktrace
+      - name: Check installed JAR mappings and both mods
+        run: |
+          python3 - <<'PY'
+          import glob,zipfile,json
+          paths=glob.glob('build/libs/*-all.jar')
+          assert len(paths)==1,paths
+          with zipfile.ZipFile(paths[0]) as jar:
+              names=jar.namelist()
+              assert 'dev/opentogether/mixin/MinecraftCompressionMixin.class' in names
+              assert 'dev/opentogether/NetworkSettings.class' in names
+              assert 'dev/opentogether/CompressionPolicy.class' in names
+              assert 'licenses/e4mc-MIT.txt' in names
+              assert any(p.startswith('META-INF/jarjar/') and p.endswith('.jar') for p in names)
+              mappings=json.loads(jar.read('opentogether.refmap.json'))['mappings']
+              assert 'dev/opentogether/mixin/MinecraftCompressionMixin' in mappings,mappings.keys()
+              assert 'version="0.8.0-alpha"' in jar.read('META-INF/mods.toml').decode()
+              print('WAN compression and e4mc nested JAR verified')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: opentogether-0.8-wan-compression
+          path: build/libs/*-all.jar
+          if-no-files-found: error
