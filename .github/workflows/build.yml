@@ -46,6 +46,12 @@ jobs:
           mkdir -p build/code-tests
           javac --release 17 -d build/code-tests src/main/java/dev/opentogether/InviteCode.java src/test/java/dev/opentogether/InviteCodeTest.java
           java -cp build/code-tests dev.opentogether.InviteCodeTest
+      - name: Test Minecraft WAN compression policy
+        shell: bash
+        run: |
+          mkdir -p build/compression-tests
+          javac --release 17 -d build/compression-tests src/main/java/dev/opentogether/CompressionPolicy.java src/test/java/dev/opentogether/CompressionPolicyTest.java
+          java -cp build/compression-tests dev.opentogether.CompressionPolicyTest
       - name: Test public invitation hostname parser
         shell: bash
         run: |
@@ -72,8 +78,9 @@ jobs:
             assert 'MixinConfigs: opentogether.mixins.json' in z.read('META-INF/MANIFEST.MF').decode('utf-8')
             assert 'opentogether.mixins.json' in z.namelist()
             refmap=json.loads(z.read('opentogether.refmap.json'))
-            assert refmap.get('mappings', {}).get('dev/opentogether/mixin/ChatMessageMixin'), 'Production mixin refmap missing'
-            assert 'version="0.7.0-alpha"' in z.read('META-INF/mods.toml').decode()
+            assert refmap.get('mappings', {}).get('dev/opentogether/mixin/ChatMessageMixin'), 'Production chat refmap missing'
+            assert refmap.get('mappings', {}).get('dev/opentogether/mixin/MinecraftCompressionMixin'), 'Production compressor refmap missing'
+            assert 'version="0.8.0-alpha"' in z.read('META-INF/mods.toml').decode()
             with zipfile.ZipFile(io.BytesIO(z.read(nest[0]))) as inner:
               assert 'modId = "e4mc"' in inner.read('META-INF/mods.toml').decode()
           print('Single-file Forge/e4mc packaging verified')
