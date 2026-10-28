@@ -22,6 +22,7 @@ public abstract class MinecraftCompressionMixin {
         if (server.isDedicatedServer()) return;
         if (!(server instanceof IntegratedServer local) || !local.isPublished()) return;
         int threshold = NetworkSettings.configuredThreshold();
-        if (threshold >= 0) cir.setReturnValue(threshold);
+        // -1 is an explicit opt-out, not a fallback to an unknown vanilla value.
+        cir.setReturnValue(threshold);
     }
 }
