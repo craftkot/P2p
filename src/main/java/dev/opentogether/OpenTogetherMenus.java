@@ -11,27 +11,19 @@ import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-@Mod.EventBusSubscriber(modid="opentogether",value=Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = "opentogether", value = Dist.CLIENT)
 public final class OpenTogetherMenus {
+    private OpenTogetherMenus() {}
+
     @SubscribeEvent
-    public static void onScreen(ScreenEvent.Init.Post e) {
-        var screen=e.getScreen();
-        if(screen instanceof TitleScreen || screen instanceof JoinMultiplayerScreen) {
-            e.addListener(Button.builder(Component.literal("Подключиться к другу"), b->Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen,false)))
-                    .bounds(screen.width-174,6,166,20).build());
-            if (screen instanceof TitleScreen) {
-                org.slf4j.LoggerFactory.getLogger("OpenTogether").info("[OpenTogether] Title-screen friend button registered");
-            }
-        }
-        if (screen instanceof PauseScreen && Minecraft.getInstance().level != null) {
-            if (Minecraft.getInstance().getSingleplayerServer() != null) {
-                e.addListener(Button.builder(Component.literal("Пригласить друга"),
-                        b -> Minecraft.getInstance().setScreen(new OpenTogetherScreen(screen, true)))
-                        .bounds(screen.width - 174, 6, 166, 20).build());
-            }
-            e.addListener(Button.builder(Component.literal("Диагностика чанков"),
-                    b -> Minecraft.getInstance().setScreen(new ChunkDiagnosticsScreen(screen)))
-                    .bounds(screen.width - 174, 30, 166, 20).build());
+    public static void onScreen(ScreenEvent.Init.Post event) {
+        var screen = event.getScreen();
+        if (screen instanceof TitleScreen || screen instanceof JoinMultiplayerScreen ||
+                screen instanceof PauseScreen) {
+            int buttonWidth = Math.min(130, Math.max(88, screen.width / 3));
+            event.addListener(Button.builder(Component.literal("OpenTogether"),
+                    button -> Minecraft.getInstance().setScreen(new OpenTogetherHubScreen(screen)))
+                    .bounds(screen.width - buttonWidth - 7, 7, buttonWidth, 20).build());
         }
     }
 }
