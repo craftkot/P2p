@@ -24,6 +24,10 @@ public final class OpenTogetherMenus {
             event.addListener(Button.builder(Component.literal("OpenTogether"),
                     button -> Minecraft.getInstance().setScreen(new OpenTogetherHubScreen(screen)))
                     .bounds(screen.width - buttonWidth - 7, 7, buttonWidth, 20).build());
+            if (screen instanceof TitleScreen) {
+                org.slf4j.LoggerFactory.getLogger("OpenTogether")
+                        .info("[OpenTogether] Title-screen friend button registered");
+            }
         }
     }
 }
