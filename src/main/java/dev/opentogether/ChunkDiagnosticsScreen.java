@@ -65,6 +65,8 @@ final class ChunkDiagnosticsScreen extends Screen {
                         .append(info.getLatency()).append(" мс\n");
             }
         }
+        if (server != null) output.append("Сжатие Minecraft при входе гостя: ").append(server.getCompressionThreshold()).append(" байт (-1 = выключено)\n");
+        if (server == null) output.append("Транспорт: ").append(transportLabel()).append("\n");
         output.append("Важно: события загрузки — не число полученных сетевых пакетов.\n");
         output.append("Низкое значение после остановки движения нормально.\n");
         return output.toString();
@@ -94,8 +96,10 @@ final class ChunkDiagnosticsScreen extends Screen {
                     " ч. / симуляция " + server.getPlayerList().getSimulationDistance() + " ч.", 0xCCFFCC);
             line(g, x, y + 80, String.format(Locale.ROOT, "Время тика: %.1f мс / предел 50 мс",
                     server.getAverageTickTime()), 0xCCFFCC);
+            line(g, x, y + 126, "Сжатие для входящих гостей: " + server.getCompressionThreshold() + " байт", 0xAADDFF);
         } else {
             line(g, x, y + 66, "Другой игрок: сравни результаты с хостом", 0xCCFFCC);
+            line(g, x, y + 126, "Транспорт: " + transportLabel(), 0xAADDFF);
             ClientPacketListener conn = minecraft.getConnection();
             if (conn != null && minecraft.player != null) {
                 PlayerInfo info = conn.getPlayerInfo(minecraft.player.getUUID());
@@ -105,6 +109,17 @@ final class ChunkDiagnosticsScreen extends Screen {
         line(g, x, y + 98, "Замеряй при движении в уже созданном мире.", 0xFFCC88);
         line(g, x, y + 110, "Рост загрузок без роста видимости? Проверь F3.", 0xFFCC88);
         if (!copied.isEmpty()) line(g, x, y + 143, copied, 0x99FF99);
+    }
+
+    /** Only inspects the transport class name; never reads/shares peer addresses. */
+    private String transportLabel() {
+        ClientPacketListener listener = minecraft.getConnection();
+        if (listener == null || listener.getConnection() == null) return "нет соединения";
+        java.net.SocketAddress remote = listener.getConnection().getRemoteAddress();
+        if (remote == null) return "адрес неизвестен";
+        if ("link.e4mc.dialtone.DialtoneAddress".equals(remote.getClass().getName()))
+            return "e4mc Dialtone (P2P или резервный relay)";
+        return "TCP/ретранслятор (не Dialtone)";
     }
 
     private void line(GuiGraphics graphics, int center, int y, String message, int color) {
