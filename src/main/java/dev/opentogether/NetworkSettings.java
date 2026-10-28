@@ -1,67 +1,74 @@
 package dev.opentogether;
 
 import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
+
 import net.minecraftforge.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Login-time compression tuning for published integrated servers only.
- * Never changes a live connection's packet format: vanilla negotiates it.
- */
+/** Read-only-at-login networking settings for the local Minecraft LAN host. */
 public final class NetworkSettings {
     private static final Logger LOG = LoggerFactory.getLogger("OpenTogether");
-    private static final int DEFAULT = CompressionPolicy.DEFAULT_THRESHOLD;
 
     private NetworkSettings() {}
 
     public static int configuredThreshold() {
-        return Holder.THRESHOLD;
+        return Holder.SETTINGS.threshold();
     }
 
+    public static CompressionTuning.Mode configuredMode() {
+        return Holder.SETTINGS.mode();
+    }
+
+    private record Settings(int threshold, CompressionTuning.Mode mode) {}
+
     private static final class Holder {
-        private static final int THRESHOLD = load();
+        private static final Settings SETTINGS = load();
     }
 
     static int parseThreshold(String text) {
         return CompressionPolicy.parse(text);
     }
 
-    private static int load() {
+    private static Settings load() {
         Path file = FMLPaths.CONFIGDIR.get().resolve("opentogether-network.properties");
-        Properties props = new Properties();
+        Properties properties = new Properties();
+
         if (Files.exists(file)) {
             try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-                props.load(reader);
+                properties.load(reader);
             } catch (IOException ex) {
-                LOG.warn("[OpenTogether] Network configuration unavailable ({})", ex.getClass().getSimpleName());
+                LOG.warn("[OpenTogether] Could not read network config type={}", ex.getClass().getSimpleName());
             }
         } else {
             try {
                 Files.createDirectories(file.getParent());
-                // Properties.store is not needed: keep comments human-readable in UTF-8.
                 Files.writeString(file, """
-                        # OpenTogether published-world network tuning
-                        # Compress remote Minecraft packets from this size (in bytes).
-                        # Valid: -1 (vanilla/off), 128, 256, 512, 1024, 2048, 4096.
-                        # Default 256: saves relay upload, at some CPU cost.
-                        # Restart the world/connection to apply changes.
+                        # OpenTogether networking, only for singleplayer worlds shared over LAN/e4mc.
+                        # Valid thresholds: -1 (no compression), 128, 256, 512, 1024, 2048, 4096.
+                        # 256 bytes recommended: compresses chunks but avoids tiny voice-sensitive traffic.
                         compressionThreshold=256
+                        # adaptive: zlib level 1 (<4KiB), 6 (<16KiB), 9 (large chunk-sized packets)
+                        # maximum: zlib level 9 for all compressed packets (may add packet latency)
+                        # vanilla: zlib level 6
+                        compressionMode=adaptive
+                        # Restart Minecraft to change these settings.
                         """, StandardCharsets.UTF_8);
             } catch (IOException ex) {
-                LOG.warn("[OpenTogether] Could not create network configuration ({})", ex.getClass().getSimpleName());
+                LOG.warn("[OpenTogether] Could not create network config type={}", ex.getClass().getSimpleName());
             }
         }
-        String configured = props.getProperty("compressionThreshold", Integer.toString(DEFAULT));
-        int result = parseThreshold(configured);
-        if (result != -1 && !Integer.toString(result).equals(configured.trim()))
-            LOG.warn("[OpenTogether] Invalid compressionThreshold. Using 256.");
-        LOG.info("[OpenTogether] Integrated LAN compression setting: {}", result);
-        return result;
+
+        String rawThreshold = properties.getProperty("compressionThreshold", "256");
+        int threshold = parseThreshold(rawThreshold);
+        String rawMode = properties.getProperty("compressionMode", "adaptive");
+        CompressionTuning.Mode mode = CompressionTuning.parseMode(rawMode);
+        LOG.info("[OpenTogether] LAN compression threshold={} bytes; mode={}", threshold, mode);
+        return new Settings(threshold, mode);
     }
 }
