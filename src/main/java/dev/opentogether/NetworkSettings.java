@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class NetworkSettings {
     private static final Logger LOG = LoggerFactory.getLogger("OpenTogether");
-    private static final int DEFAULT = 256;
+    private static final int DEFAULT = CompressionPolicy.DEFAULT_THRESHOLD;
 
     private NetworkSettings() {}
 
@@ -29,15 +29,7 @@ public final class NetworkSettings {
     }
 
     static int parseThreshold(String text) {
-        if (text == null) return DEFAULT;
-        try {
-            int threshold = Integer.parseInt(text.trim());
-            // -1 disables, 128..4096 supported in power-of-two steps.
-            if (threshold == -1 || threshold == 128 || threshold == 256 ||
-                    threshold == 512 || threshold == 1024 || threshold == 2048 ||
-                    threshold == 4096) return threshold;
-        } catch (NumberFormatException ignored) { }
-        return DEFAULT;
+        return CompressionPolicy.parse(text);
     }
 
     private static int load() {
