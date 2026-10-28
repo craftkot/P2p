@@ -3,9 +3,9 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="opentogether"
-version="0.7.0-alpha"
+version="0.8.0-alpha"
 displayName="OpenTogether"
-description='''One-file LAN invitations with chunk load diagnostics and embedded e4mc.'''
+description='''Single-JAR e4mc friends, chunk telemetry and login-time WAN packet compression.'''
 [[dependencies.opentogether]]
 modId="forge"
 mandatory=true
