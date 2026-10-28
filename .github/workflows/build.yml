@@ -87,6 +87,7 @@ jobs:
             assert refmap.get('mappings', {}).get('dev/opentogether/mixin/ChatMessageMixin'), 'Production chat refmap missing'
             assert refmap.get('mappings', {}).get('dev/opentogether/mixin/MinecraftCompressionMixin'), 'Production compressor refmap missing'
             assert 'dev/opentogether/mixin/CompressionEncoderMixin.class' in z.namelist(), 'Missing encoder mixin'
+            assert refmap.get('mappings', {}).get('dev/opentogether/mixin/CompressionEncoderMixin'), 'Missing production encoder Mixin remap'
             assert 'version="0.9.0-alpha"' in z.read('META-INF/mods.toml').decode()
             with zipfile.ZipFile(io.BytesIO(z.read(nest[0]))) as inner:
               assert 'modId = "e4mc"' in inner.read('META-INF/mods.toml').decode()
