@@ -11,14 +11,19 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.network.chat.Component;
 
-/** One-JAR invitation screen. e4mc is bundled; users never install a second mod. */
+/**
+ * Friend invitation and joining UI. All controls use vanilla widgets; no
+ * assets, shaders, custom rendering engines or external services required.
+ */
 final class OpenTogetherScreen extends Screen {
     private final Screen previous;
     private final boolean inviting;
     private EditBox addressField;
     private Button copyButton;
+    private Button connectButton;
     private String status = "";
     private String rememberedAddress = "";
+    private boolean copiedDuringSession;
 
     OpenTogetherScreen(Screen previous, boolean inviting) {
         super(Component.literal("OpenTogether"));
@@ -28,56 +33,19 @@ final class OpenTogetherScreen extends Screen {
 
     @Override
     protected void init() {
-        int x = width / 2 - 140;
-        int y = height / 2 - 67;
+        int left = FriendsUiStyle.panelLeft(width);
+        int top = FriendsUiStyle.panelTop(height);
+        int w = FriendsUiStyle.panelWidth(width);
+        int bx = left + 16, bw = w - 32;
+
         if (inviting) {
-            if (!isLanOpen()) {
-                addRenderableWidget(Button.builder(
-                        Component.literal("Открыть мир для друзей"),
-                        b -> {
-                            FriendInvites.requestCopy();
-                            minecraft.setScreen(new ShareToLanScreen(previous));
-                        }).bounds(x, y + 28, 280, 20).build());
-                status = "Открой LAN — адрес появится и скопируется автоматически";
-            } else {
-                copyButton = addRenderableWidget(Button.builder(
-                        Component.literal("Скопировать приглашение"),
-                        b -> {
-                            FriendInvites.requestCopy();
-                            status = FriendInvites.getPublishedDomain() != null
-                                    ? "Адрес скопирован. Отправь его другу."
-                                    : "Ожидаем адрес от встроенного e4mc...";
-                        }).bounds(x, y + 28, 280, 20).build());
-                copyButton.active = FriendInvites.getPublishedDomain() != null;
-                // Opening the invitation screen is an explicit request to share.
-                // If the broker is still connecting, copy as soon as it assigns a domain.
-                FriendInvites.requestCopy();
-                status = copyButton.active
-                        ? "Адрес уже скопирован. Отправь его другу."
-                        : "Подключаемся к сети e4mc; скопируем адрес автоматически...";
-            }
-            addRenderableWidget(Button.builder(Component.literal("Вернуться в игру"),
-                    b -> minecraft.setScreen(null)).bounds(x, y + 55, 280, 20).build());
+            initHosting(bx, bw, top);
         } else {
-            addressField = new EditBox(font, x, y + 28, 280, 20,
-                    Component.literal("Адрес друга"));
-            addressField.setMaxLength(255);
-            addressField.setValue(rememberedAddress);
-            addressField.setHint(Component.literal("example.eu.e4mc.link"));
-            addRenderableWidget(addressField);
-            addRenderableWidget(Button.builder(Component.literal("Подключиться"),
-                    b -> connect()).bounds(x, y + 55, 280, 20).build());
-            addRenderableWidget(Button.builder(Component.literal("Вставить приглашение"),
-                    b -> {
-                        String clipboard = minecraft.keyboardHandler.getClipboard();
-                        if (clipboard != null) addressField.setValue(clipboard.trim());
-                    }).bounds(x, y + 82, 280, 20).build());
-            status = "Вставь адрес, который прислал друг";
-            setInitialFocus(addressField);
+            initJoining(bx, bw, top);
         }
 
-        addRenderableWidget(Button.builder(Component.literal("Назад"),
-                b -> onClose()).bounds(x, y + 109, 280, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("X"), b -> onClose())
+                .bounds(left + w - 30, top + 10, 18, 18).build());
     }
 
     private boolean isLanOpen() {
@@ -85,33 +53,97 @@ final class OpenTogetherScreen extends Screen {
         return server != null && server.isPublished();
     }
 
-    private void connect() {
-        String endpoint = addressField.getValue().trim();
-        rememberedAddress = endpoint;
-        if (!endpoint.matches("(?i)^[a-z0-9][a-z0-9.-]{0,252}(?::[0-9]{1,5})?$")) {
-            status = "Введи адрес Minecraft, без https://";
+    private void initHosting(int x, int w, int y) {
+        if (!isLanOpen()) {
+            addRenderableWidget(Button.builder(Component.literal("Открыть мир для друзей"),
+                    b -> {
+                        FriendInvites.requestCopy();
+                        minecraft.setScreen(new ShareToLanScreen(previous));
+                    }).bounds(x, y + 122, w, 24).build());
+            status = "Шаг 1: открой LAN. Шаг 2: отправь адрес другу.";
+        } else {
+            copyButton = addRenderableWidget(Button.builder(Component.literal("Скопировать адрес"),
+                    b -> {
+                        FriendInvites.requestCopy();
+                        copiedDuringSession = FriendInvites.getPublishedDomain() != null;
+                        status = copiedDuringSession
+                                ? "Адрес скопирован. Вставь его другу."
+                                : "Ожидаем адрес от встроенного e4mc...";
+                    }).bounds(x, y + 122, w, 24).build());
+            FriendInvites.requestCopy();
+            copiedDuringSession = FriendInvites.getPublishedDomain() != null;
+            status = copiedDuringSession
+                    ? "Адрес автоматически скопирован."
+                    : "Подключаемся к сети, ждём публичный адрес...";
+            copyButton.active = copiedDuringSession;
+        }
+
+        addRenderableWidget(Button.builder(Component.literal("Вернуться в игру"),
+                b -> minecraft.setScreen(null)).bounds(x, y + 153, w, 24).build());
+    }
+
+    private void initJoining(int x, int w, int y) {
+        addressField = new EditBox(font, x, y + 84, w, 23, Component.literal("Адрес Minecraft"));
+        addressField.setMaxLength(255);
+        addressField.setValue(rememberedAddress);
+        addressField.setHint(Component.literal("пример: sunny.eu.e4mc.link"));
+        addRenderableWidget(addressField);
+
+        connectButton = addRenderableWidget(Button.builder(Component.literal("Подключиться"),
+                b -> connect()).bounds(x, y + 122, w, 24).build());
+        connectButton.active = !rememberedAddress.isBlank();
+        addressField.setResponder(value -> {
+            rememberedAddress = value;
+            connectButton.active = !value.trim().isEmpty();
+            status = "Проверь адрес и нажми «Подключиться»";
+        });
+
+        addRenderableWidget(Button.builder(Component.literal("Вставить из буфера"),
+                b -> pasteAddress()).bounds(x, y + 153, w, 24).build());
+        setInitialFocus(addressField);
+        status = "Введи адрес, который прислал хозяин мира.";
+    }
+
+    private void pasteAddress() {
+        String clipboard = minecraft.keyboardHandler.getClipboard();
+        if (clipboard == null || clipboard.isBlank()) {
+            status = "Буфер обмена пуст.";
             return;
         }
-        int colon = endpoint.lastIndexOf(':');
-        if (colon >= 0) {
-            try {
-                int port = Integer.parseInt(endpoint.substring(colon + 1));
-                if (port < 1 || port > 65535) {
-                    status = "Некорректный номер порта";
-                    return;
-                }
-            } catch (NumberFormatException ex) {
-                status = "Некорректный номер порта";
-                return;
-            }
+        if (clipboard.length() > 255) {
+            status = "В буфере слишком длинный текст.";
+            return;
         }
+        addressField.setValue(clipboard.trim());
+        status = "Адрес вставлен. Можно подключаться.";
+    }
+
+    private void connect() {
+        String endpoint;
+        try {
+            endpoint = FriendServerAddress.normalize(addressField.getValue());
+        } catch (IllegalArgumentException ex) {
+            status = "Неверный адрес. Нужен домен или IP с портом.";
+            return;
+        }
+        rememberedAddress = endpoint;
         try {
             ServerAddress address = ServerAddress.parseString(endpoint);
             ServerData data = new ServerData("OpenTogether friend", endpoint, false);
-            ConnectScreen.startConnecting(previous, minecraft, address, data, false);
+            ConnectScreen.startConnecting(this, minecraft, address, data, false);
         } catch (RuntimeException ex) {
-            status = "Проверь адрес и соединение";
+            status = "Не получилось подключиться. Проверь адрес.";
         }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (!inviting && (keyCode == 257 || keyCode == 335) &&
+                addressField != null && !addressField.getValue().trim().isEmpty()) {
+            connect();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -120,28 +152,49 @@ final class OpenTogetherScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mx, int my, float tick) {
-        renderBackground(g);
-        super.render(g, mx, my, tick);
-        int mid = width / 2;
-        g.drawCenteredString(font, inviting ? "Пригласить друга" : "Подключиться к другу",
-                mid, height / 2 - 88, 0xFFFFFF);
-        if (inviting && isLanOpen()) {
-            String domain = FriendInvites.getPublishedDomain();
-            if (copyButton != null) copyButton.active = domain != null;
-            if (domain != null) {
-                g.drawCenteredString(font, domain, mid, height / 2 - 21, 0x99FF99);
-                if (!status.startsWith("Адрес уже скопирован") && !status.startsWith("Адрес скопирован")) {
-                    status = "Адрес готов. Нажми «Скопировать» или отправь другу.";
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        FriendsUiStyle.drawPanel(g, width, height, "", "");
+        FriendsUiStyle.heading(g, font, width, height,
+                inviting ? "ПРИГЛАСИТЬ ДРУГА" : "ПОДКЛЮЧИТЬСЯ",
+                inviting ? "Открой мир и поделись адресом"
+                        : "Вставь адрес друга и начинай играть");
+
+        int left = FriendsUiStyle.panelLeft(width);
+        int top = FriendsUiStyle.panelTop(height);
+        int w = FriendsUiStyle.panelWidth(width);
+
+        if (inviting) {
+            String domain = isLanOpen() ? FriendInvites.getPublishedDomain() : null;
+            String stage = !isLanOpen() ? "МИР ЗАКРЫТ"
+                    : domain == null ? "ОЖИДАЕМ АДРЕС" : "МИР ДОСТУПЕН";
+            FriendsUiStyle.text(g, font, stage, left + 16, top + 67,
+                    domain != null ? FriendsUiStyle.ACCENT : FriendsUiStyle.WARNING, w - 32);
+
+            FriendsUiStyle.field(g, left + 15, top + 83, w - 30, 31, domain != null);
+            FriendsUiStyle.text(g, font, domain == null ? "Адрес появится здесь..."
+                            : domain, left + 25, top + 94,
+                    domain == null ? FriendsUiStyle.MUTED : FriendsUiStyle.TEXT, w - 50);
+
+            if (copyButton != null) {
+                copyButton.active = domain != null && isLanOpen();
+                if (domain != null && !copiedDuringSession) {
+                    // The request to copy was armed by initHosting(). The
+                    // bridge copies the address as soon as e4mc announces it.
+                    status = "Адрес появился и готов к отправке.";
                 }
             }
+        } else {
+            FriendsUiStyle.text(g, font, "АДРЕС СЕРВЕРА", left + 16, top + 68,
+                    FriendsUiStyle.MUTED, w - 32);
         }
-        g.drawCenteredString(font, status.length() > 68 ? status.substring(0, 68) : status,
-                mid, height / 2 + 76, 0xDDDDDD);
-        if (inviting) {
-            g.drawCenteredString(font, "Встроенный e4mc • один JAR • без Cloudflare",
-                    mid, height / 2 + 94, 0xFFBB77);
-        }
+
+        FriendsUiStyle.text(g, font, status, left + 16, top + 190,
+                FriendsUiStyle.MUTED, w - 32);
+        FriendsUiStyle.text(g, font, inviting ? "Адрес действует, пока открыт твой мир."
+                        : "Работает со встроенным e4mc и обычными серверами.",
+                left + 16, top + 207, FriendsUiStyle.ACCENT, w - 32);
+
+        super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override

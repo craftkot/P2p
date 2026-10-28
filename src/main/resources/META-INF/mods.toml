@@ -3,9 +3,9 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="opentogether"
-version="0.9.0-alpha"
+version="0.10.0-alpha"
 displayName="OpenTogether"
-description='''Single-JAR e4mc friends, chunk diagnostics, and adaptive zlib compression.'''
+description='''A polished friends dashboard, LAN sharing, one-click joining and adaptive zlib networking.'''
 [[dependencies.opentogether]]
 modId="forge"
 mandatory=true

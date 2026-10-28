@@ -1,6 +1,5 @@
 package dev.opentogether;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -11,119 +10,118 @@ import net.minecraft.network.chat.Component;
 
 import java.util.Locale;
 
-/**
- * A zero-packet inspection tool. It does not increase view distance or
- * manipulate chunk send order, avoiding additional stress on slow relays.
- */
+/** A noninvasive view of chunk loading, TPS and Minecraft connection health. */
 final class ChunkDiagnosticsScreen extends Screen {
     private final Screen previous;
-    private String copied = "";
+    private String feedback = "Сделай замер при движении по знакомой местности";
 
     ChunkDiagnosticsScreen(Screen previous) {
-        super(Component.literal("OpenTogether — диагностика чанков"));
+        super(Component.literal("OpenTogether — диагностика"));
         this.previous = previous;
     }
 
     @Override
     protected void init() {
-        int x = width / 2 - 132;
-        int y = height / 2 + 70;
-        addRenderableWidget(Button.builder(Component.literal("Скопировать показатели"), b -> {
-            minecraft.keyboardHandler.setClipboard(report());
-            copied = "Показатели скопированы. Отправь их хозяину мира.";
-        }).bounds(x, y, 264, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Назад"), b -> onClose())
-                .bounds(x, y + 26, 264, 20).build());
+        int left = FriendsUiStyle.panelLeft(width), top = FriendsUiStyle.panelTop(height);
+        int w = FriendsUiStyle.panelWidth(width);
+        addRenderableWidget(Button.builder(Component.literal("Скопировать отчёт"),
+                b -> {
+                    minecraft.keyboardHandler.setClipboard(report());
+                    feedback = "Отчёт скопирован, отправь его другу";
+                }).bounds(left + 16, top + 175, w - 32, 24).build());
+
+        addRenderableWidget(Button.builder(Component.literal("X"), b -> onClose())
+                .bounds(left + w - 30, top + 10, 18, 18).build());
     }
 
     private String report() {
         if (minecraft.level == null) return "OpenTogether: мир не открыт";
-        int loaded = minecraft.level.getChunkSource().getLoadedChunksCount();
-        int clientRender = minecraft.options.renderDistance().get();
         var sample = ChunkArrivalStats.sample();
         var server = minecraft.getSingleplayerServer();
-        StringBuilder output = new StringBuilder("OpenTogether 0.7 / диагностика загрузки чанков\n");
-        output.append("Клиент, дальность прорисовки: ").append(clientRender).append(" чанков\n");
-        output.append("Чанков в клиентском кеше: ").append(loaded).append('\n');
-        output.append("Событий загрузки чанков за 10 секунд: ").append(sample.loadedInLast10s()).append('\n');
-        output.append("С последней загрузки прошло: ").append(sample.secondsSinceLastLoad())
-                .append(" с (-1 = не наблюдали)\n");
+        StringBuilder out = new StringBuilder("OpenTogether | Диагностика загрузки чанков\n");
+        out.append("Клиент, дальность прорисовки: ").append(minecraft.options.renderDistance().get()).append('\n');
+        out.append("Кеш чанков: ").append(minecraft.level.getChunkSource().getLoadedChunksCount()).append('\n');
+        out.append("Событий загрузки за 10 секунд: ").append(sample.loadedInLast10s()).append('\n');
+        out.append("Время с последней загрузки: ").append(sample.secondsSinceLastLoad()).append(" с\n");
         if (server != null) {
-            output.append("Локальный хост: да\n");
-            output.append("Сервер, дальность отправки: ")
-                    .append(server.getPlayerList().getViewDistance()).append(" чанков\n");
-            output.append("Сервер, дальность симуляции: ")
-                    .append(server.getPlayerList().getSimulationDistance()).append(" чанков\n");
-            output.append(String.format(Locale.ROOT, "Среднее время тика: %.1f мс\n",
-                    server.getAverageTickTime()));
+            out.append("Хост, отправка: ").append(server.getPlayerList().getViewDistance()).append(" чанков\n");
+            out.append("Хост, симуляция: ").append(server.getPlayerList().getSimulationDistance()).append(" чанков\n");
+            out.append(String.format(Locale.ROOT, "Среднее время тика: %.1f мс\n", server.getAverageTickTime()));
+            out.append("Порог сжатия: ").append(server.getCompressionThreshold()).append(" байт\n");
+            out.append("Режим: ").append(NetworkSettings.configuredMode()).append('\n');
         } else {
-            output.append("Локальный хост: нет\n");
-            ClientPacketListener connection = minecraft.getConnection();
-            if (connection != null && minecraft.player != null) {
-                PlayerInfo info = connection.getPlayerInfo(minecraft.player.getUUID());
-                if (info != null) output.append("Пинг (по Minecraft): ")
-                        .append(info.getLatency()).append(" мс\n");
+            out.append("Транспорт: ").append(transportLabel()).append('\n');
+            out.append("Пинг: ").append(latency()).append(" мс\n");
+        }
+        out.append("Количество новых чанков — не скорость сети. При стоянке оно может быть нулевым.");
+        return out.toString();
+    }
+
+    private int latency() {
+        if (minecraft.getConnection() == null || minecraft.player == null) return -1;
+        PlayerInfo info = minecraft.getConnection().getPlayerInfo(minecraft.player.getUUID());
+        return info == null ? -1 : info.getLatency();
+    }
+
+    private String transportLabel() {
+        ClientPacketListener listener = minecraft.getConnection();
+        if (listener == null || listener.getConnection() == null) return "нет соединения";
+        java.net.SocketAddress remote = listener.getConnection().getRemoteAddress();
+        if (remote == null) return "неизвестен";
+        if ("link.e4mc.dialtone.DialtoneAddress".equals(remote.getClass().getName()))
+            return "e4mc Dialtone (прямой или relay)";
+        return "Обычный TCP / ретранслятор";
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        FriendsUiStyle.drawPanel(g, width, height, "", "");
+        FriendsUiStyle.heading(g, font, width, height,
+                "ДИАГНОСТИКА СЕТИ", "Загрузка чанков и состояние соединения");
+
+        int left = FriendsUiStyle.panelLeft(width), top = FriendsUiStyle.panelTop(height);
+        int w = FriendsUiStyle.panelWidth(width);
+        if (minecraft.level == null) {
+            metric(g, left, top + 77, w, "Нет открытого мира", FriendsUiStyle.WARNING);
+        } else {
+            var sample = ChunkArrivalStats.sample();
+            metric(g, left, top + 65, w,
+                    "Кеш чанков: " + minecraft.level.getChunkSource().getLoadedChunksCount(),
+                    FriendsUiStyle.TEXT);
+            metric(g, left, top + 82, w,
+                    "Новые загрузки (10 с): " + sample.loadedInLast10s(),
+                    FriendsUiStyle.ACCENT);
+            metric(g, left, top + 99, w,
+                    "Прорисовка клиента: " + minecraft.options.renderDistance().get() + " чанков",
+                    FriendsUiStyle.TEXT);
+            IntegratedServer server = minecraft.getSingleplayerServer();
+            if (server != null) {
+                metric(g, left, top + 116, w, "Хост / отправка: " +
+                        server.getPlayerList().getViewDistance() + " чанков", FriendsUiStyle.TEXT);
+                metric(g, left, top + 133, w, String.format(Locale.ROOT,
+                        "Серверный тик: %.1f / 50 мс", server.getAverageTickTime()), FriendsUiStyle.TEXT);
+                metric(g, left, top + 150, w, "Сжатие: " + server.getCompressionThreshold() +
+                        " B, " + NetworkSettings.configuredMode(), FriendsUiStyle.MUTED);
+            } else {
+                metric(g, left, top + 116, w, "Пинг Minecraft: " + latency() + " мс",
+                        FriendsUiStyle.TEXT);
+                metric(g, left, top + 133, w, "Маршрут: " + transportLabel(),
+                        FriendsUiStyle.TEXT);
+                metric(g, left, top + 150, w, "Сравни с отчётом хозяина мира",
+                        FriendsUiStyle.MUTED);
             }
         }
-        if (server != null) output.append("Сжатие Minecraft при входе гостя: ").append(server.getCompressionThreshold()).append(" байт (-1 = выключено)\n");
-        if (server == null) output.append("Транспорт: ").append(transportLabel()).append("\n");
-        output.append("Важно: события загрузки — не число полученных сетевых пакетов.\n");
-        output.append("Низкое значение после остановки движения нормально.\n");
-        return output.toString();
+        metric(g, left, top + 208, w, feedback, FriendsUiStyle.MUTED);
+        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    private void metric(GuiGraphics g, int left, int y, int w, String label, int color) {
+        FriendsUiStyle.text(g, font, label, left + 17, y, color, w - 34);
     }
 
     @Override
     public void onClose() {
         minecraft.setScreen(previous);
-    }
-
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        renderBackground(g);
-        super.render(g, mouseX, mouseY, partialTick);
-        if (minecraft.level == null) return;
-        int x = width / 2, y = height / 2 - 91;
-        g.drawCenteredString(font, "OpenTogether | Диагностика чанков", x, y, 0xFFFFFF);
-        int loaded = minecraft.level.getChunkSource().getLoadedChunksCount();
-        var sample = ChunkArrivalStats.sample();
-        line(g, x, y + 22, "Чанков в клиентском кеше: " + loaded, 0xFFFFFF);
-        line(g, x, y + 36, "Новые загрузки за 10 с: " + sample.loadedInLast10s(), 0xAADDFF);
-        line(g, x, y + 50, "Дальность прорисовки: " +
-                minecraft.options.renderDistance().get() + " чанков", 0xFFFFFF);
-        IntegratedServer server = minecraft.getSingleplayerServer();
-        if (server != null) {
-            line(g, x, y + 66, "Хост: отправка до " + server.getPlayerList().getViewDistance() +
-                    " ч. / симуляция " + server.getPlayerList().getSimulationDistance() + " ч.", 0xCCFFCC);
-            line(g, x, y + 80, String.format(Locale.ROOT, "Время тика: %.1f мс / предел 50 мс",
-                    server.getAverageTickTime()), 0xCCFFCC);
-            line(g, x, y + 126, "Сжатие для входящих гостей: " + server.getCompressionThreshold() + " байт", 0xAADDFF);
-        } else {
-            line(g, x, y + 66, "Другой игрок: сравни результаты с хостом", 0xCCFFCC);
-            line(g, x, y + 126, "Транспорт: " + transportLabel(), 0xAADDFF);
-            ClientPacketListener conn = minecraft.getConnection();
-            if (conn != null && minecraft.player != null) {
-                PlayerInfo info = conn.getPlayerInfo(minecraft.player.getUUID());
-                if (info != null) line(g, x, y + 80, "Пинг: " + info.getLatency() + " мс", 0xCCFFCC);
-            }
-        }
-        line(g, x, y + 98, "Замеряй при движении в уже созданном мире.", 0xFFCC88);
-        line(g, x, y + 110, "Рост загрузок без роста видимости? Проверь F3.", 0xFFCC88);
-        if (!copied.isEmpty()) line(g, x, y + 143, copied, 0x99FF99);
-    }
-
-    /** Only inspects the transport class name; never reads/shares peer addresses. */
-    private String transportLabel() {
-        ClientPacketListener listener = minecraft.getConnection();
-        if (listener == null || listener.getConnection() == null) return "нет соединения";
-        java.net.SocketAddress remote = listener.getConnection().getRemoteAddress();
-        if (remote == null) return "адрес неизвестен";
-        if ("link.e4mc.dialtone.DialtoneAddress".equals(remote.getClass().getName()))
-            return "e4mc Dialtone (P2P или резервный relay)";
-        return "TCP/ретранслятор (не Dialtone)";
-    }
-
-    private void line(GuiGraphics graphics, int center, int y, String message, int color) {
-        graphics.drawCenteredString(font, message, center, y, color);
     }
 
     @Override

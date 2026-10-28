@@ -2,7 +2,7 @@ name: OpenTogether Client Smoke
 
 on:
   push:
-    branches: [main, feature/auto-invite-clipboard]
+    branches: [main, feature/modern-friends-ui]
     paths:
       - '.github/workflows/client-smoke.yml'
       - 'src/**'
@@ -63,8 +63,23 @@ jobs:
               fi
               scrot client-smoke/minecraft-title.png
               test -s client-smoke/minecraft-title.png
-              echo "Headless Forge client reached its title screen and registered the OpenTogether button"
-              exit 0
+              WINDOW=$(head -n 1 /tmp/opentogether-windows)
+              eval "$(xdotool getwindowgeometry --shell "$WINDOW")"
+              echo "Clicking OpenTogether on Minecraft title, window width=$WIDTH height=$HEIGHT"
+              xdotool mousemove --window "$WINDOW" "$((WIDTH - 140))" 34 click 1
+              for attempt in $(seq 1 12); do
+                if grep -q 'Friends dashboard opened' run/logs/latest.log; then
+                  sleep 2
+                  scrot client-smoke/opentogether-friends-dashboard.png
+                  test -s client-smoke/opentogether-friends-dashboard.png
+                  echo "OpenTogether hub is visible and captured"
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "Title button registered but dashboard was not opened by click"
+              tail -n 120 run/logs/latest.log
+              exit 1
             fi
             if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
               echo "Client process ended before a Minecraft window appeared"
