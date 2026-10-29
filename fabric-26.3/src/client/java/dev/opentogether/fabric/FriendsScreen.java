@@ -38,8 +38,11 @@ public final class FriendsScreen extends Screen {
             addRenderableWidget(Button.builder(Component.literal("Подключиться к другу"),
                 b -> { tab = 1; rebuildWidgets(); })
                 .bounds(x, y + 104, w, 24).build());
-            addRenderableWidget(Button.builder(Component.literal("Вернуться в Minecraft"),
-                b -> onClose()).bounds(x, y + 141, w, 24).build());
+            addRenderableWidget(Button.builder(Component.literal("Диагностика"),
+                b -> minecraft.gui.setScreen(new ChunkDiagnosticsScreen(this)))
+                .bounds(x, y + 141, (w - 6) / 2, 24).build());
+            addRenderableWidget(Button.builder(Component.literal("Закрыть"),
+                b -> onClose()).bounds(x + (w + 6) / 2, y + 141, (w - 6) / 2, 24).build());
             feedback = hosting ? "После открытия LAN адрес появится в чате e4mc."
                     : "Чтобы пригласить, зайди в одиночный мир.";
         } else {
