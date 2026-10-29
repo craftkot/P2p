@@ -1,6 +1,8 @@
 package dev.opentogether.fabric;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
@@ -14,6 +16,10 @@ import net.minecraft.network.chat.Component;
 public final class OpenTogetherFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
+                ChunkArrivalStats.INSTANCE.onChunkLoaded(world));
+        ClientTickEvents.END_CLIENT_TICK.register(client ->
+                ChunkArrivalStats.INSTANCE.setWorld(client.level));
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (screen instanceof TitleScreen || screen instanceof JoinMultiplayerScreen
                     || screen instanceof PauseScreen) {
