@@ -30,7 +30,7 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.6.0'
+          gradle-version: '9.8.0'
       - name: Build Fabric 26.3
         run: gradle --no-daemon clean build --stacktrace
       - name: Verify Fabric metadata and nested e4mc
