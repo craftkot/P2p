@@ -31,11 +31,11 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${loader_version}"
 
     // Official MIT-licensed e4mc 6.2.3 for modern Fabric.
-    modImplementation "maven.modrinth:qANg5Jrr:RNDvrMAd"
+    implementation "maven.modrinth:qANg5Jrr:RNDvrMAd"
     include "maven.modrinth:qANg5Jrr:RNDvrMAd"
 
     // Include Fabric API needed by e4mc and by our screen hooks.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
     include "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 }
 
