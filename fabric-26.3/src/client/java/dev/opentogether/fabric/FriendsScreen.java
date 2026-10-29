@@ -1,11 +1,11 @@
 package dev.opentogether.fabric;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.ShareToLanScreen;
+import net.minecraft.client.gui.screens.WorldOptionsScreen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.Component;
@@ -32,7 +32,7 @@ public final class FriendsScreen extends Screen {
             boolean hosting = minecraft.getSingleplayerServer() != null;
             Button share = addRenderableWidget(Button.builder(
                 Component.literal("Открыть свой мир для друзей"),
-                b -> minecraft.setScreen(new ShareToLanScreen(previous)))
+                b -> minecraft.gui.setScreen(new WorldOptionsScreen(previous, minecraft.level)))
                 .bounds(x, y + 74, w, 24).build());
             share.active = hosting;
             addRenderableWidget(Button.builder(Component.literal("Подключиться к другу"),
@@ -74,33 +74,33 @@ public final class FriendsScreen extends Screen {
         lastAddress = value;
         ServerAddress target = ServerAddress.parseString(value);
         ServerData data = new ServerData("OpenTogether friend", value, ServerData.Type.OTHER);
-        ConnectScreen.startConnecting(this, minecraft, target, data, false);
+        ConnectScreen.startConnecting(this, minecraft, target, data, false, null);
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
         int w = Math.min(310, width - 30);
         int x = (width - w) / 2;
         int y = Math.max(12, (height - 220) / 2);
         g.fill(0, 0, width, height, 0xCC0B121D);
         g.fill(x - 8, y, x + w + 8, y + 185, 0xEE15202F);
         g.fill(x - 8, y, x + w + 8, y + 2, 0xFF67DDC2);
-        g.drawString(font, "OPENTOGETHER 26.3", x + 10, y + 16, 0xFFEAF7FF, false);
-        g.drawString(font, tab == 0 ? "Играй с друзьями без проброса портов"
+        g.text(font, "OPENTOGETHER 26.3", x + 10, y + 16, 0xFFEAF7FF, false);
+        g.text(font, tab == 0 ? "Играй с друзьями без проброса портов"
                 : "Подключение по адресу Minecraft", x + 10, y + 38, 0xFFB4C7D4, false);
-        g.drawString(font, "Встроен e4mc 6.2.3 / Fabric", x + 10, y + 56, 0xFF67DDC2, false);
+        g.text(font, "Встроен e4mc 6.2.3 / Fabric", x + 10, y + 56, 0xFF67DDC2, false);
         if (feedback != null) {
             String line = feedback;
             while (font.width(line) > w && line.length() > 4)
                 line = line.substring(0, line.length() - 1);
-            g.drawString(font, line, x + 4, y + 174, 0xFFFFD59C, false);
+            g.text(font, line, x + 4, y + 174, 0xFFFFD59C, false);
         }
-        super.render(g, mouseX, mouseY, delta);
+        super.extractRenderState(g, mouseX, mouseY, delta);
     }
 
     @Override
     public void onClose() {
-        minecraft.setScreen(previous);
+        minecraft.gui.setScreen(previous);
     }
 
     @Override
