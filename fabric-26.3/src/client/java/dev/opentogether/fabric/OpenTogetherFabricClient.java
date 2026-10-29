@@ -21,6 +21,10 @@ public final class OpenTogetherFabricClient implements ClientModInitializer {
                         b -> client.gui.setScreen(new FriendsScreen(screen)))
                         .bounds(Math.max(4, scaledWidth - 124), 7, 116, 20).build();
                 Screens.getWidgets(screen).add(button);
+                if (screen instanceof TitleScreen) {
+                    org.slf4j.LoggerFactory.getLogger("OpenTogether")
+                            .info("[OpenTogether] Fabric 26.3 title button registered");
+                }
             }
         });
     }
