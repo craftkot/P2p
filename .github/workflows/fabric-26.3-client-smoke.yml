@@ -57,7 +57,7 @@ jobs:
           for i in $(seq 1 120); do
             if [ -f run/logs/latest.log ] && grep -q 'OpenTogether' run/logs/latest.log \
                 && grep -q 'Minecraft' run/logs/latest.log; then
-              echo "Minecraft and OpenTogether seen in runtime logs"
+              echo "OpenTogether button actually registered on Minecraft 26.3 title"
               sleep 10
               if ! kill -0 "$LAUNCH_PID"; then
                 tail -n 150 client-smoke/console.log
