@@ -1,0 +1,56 @@
+name: Fabric 26.3 Build
+
+on:
+  push:
+    branches: [feature/fabric-26.3, main]
+    paths:
+      - 'fabric-26.3/**'
+      - '.github/workflows/fabric-26.3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opentogether-fabric-26-3-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: fabric-26.3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Build Fabric 26.3
+        run: gradle --no-daemon clean build --stacktrace
+      - name: Verify Fabric metadata and nested e4mc
+        run: |
+          python3 - <<'PY'
+          import glob, zipfile, json
+          jars=[p for p in glob.glob('build/libs/*.jar') if not p.endswith('-sources.jar')]
+          assert len(jars)==1,jars
+          with zipfile.ZipFile(jars[0]) as z:
+            data=json.loads(z.read('fabric.mod.json'))
+            assert data['id']=='opentogether'
+            assert data['depends']['minecraft']=='~26.3'
+            nested=[p for p in z.namelist() if p.startswith('META-INF/jars/') and p.endswith('.jar')]
+            print('Nested Fabric dependencies:',nested)
+            assert any('e4mc' in p.lower() or 'qANg5Jrr' in p for p in nested), 'Missing embedded e4mc'
+            assert any('fabric-api' in p.lower() for p in nested), 'Missing embedded Fabric API'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: opentogether-fabric-26.3
+          path: fabric-26.3/build/libs/*.jar
+          if-no-files-found: error
