@@ -2,6 +2,7 @@ package dev.opentogether.fabric;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -19,7 +20,7 @@ public final class OpenTogetherFabricClient implements ClientModInitializer {
                 Button button = Button.builder(Component.literal("OpenTogether"),
                         b -> client.setScreen(new FriendsScreen(screen)))
                         .bounds(Math.max(4, scaledWidth - 124), 7, 116, 20).build();
-                ScreenEvents.getButtons(screen).add(button);
+                Screens.getButtons(screen).add(button);
             }
         });
     }
