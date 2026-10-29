@@ -2,7 +2,7 @@ name: Fabric 26.3 Build
 
 on:
   push:
-    branches: [feature/fabric-26.3, main]
+    branches: ['feature/fabric-26.3*', main]
     paths:
       - 'fabric-26.3/**'
       - '.github/workflows/fabric-26.3.yml'
