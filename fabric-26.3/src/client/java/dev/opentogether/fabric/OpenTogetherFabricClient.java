@@ -18,9 +18,9 @@ public final class OpenTogetherFabricClient implements ClientModInitializer {
             if (screen instanceof TitleScreen || screen instanceof JoinMultiplayerScreen
                     || screen instanceof PauseScreen) {
                 Button button = Button.builder(Component.literal("OpenTogether"),
-                        b -> client.setScreen(new FriendsScreen(screen)))
+                        b -> client.gui.setScreen(new FriendsScreen(screen)))
                         .bounds(Math.max(4, scaledWidth - 124), 7, 116, 20).build();
-                Screens.getButtons(screen).add(button);
+                Screens.getWidgets(screen).add(button);
             }
         });
     }
