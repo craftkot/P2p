@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "opentogether",
+  "version": "${version}",
+  "name": "OpenTogether",
+  "description": "Minecraft 26.3 Fabric friend invitations with integrated e4mc relay and network diagnostics.",
+  "authors": [
+    "craftkot"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.opentogether.fabric.OpenTogetherFabricClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

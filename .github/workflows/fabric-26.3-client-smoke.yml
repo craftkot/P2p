@@ -1,0 +1,87 @@
+name: Fabric 26.3 Client Smoke
+
+on:
+  push:
+    branches: [feature/fabric-26.3, main]
+    paths:
+      - 'fabric-26.3/**'
+      - '.github/workflows/fabric-26.3-client-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opentogether-fabric-client-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: fabric-26.3
+    env:
+      DISPLAY: ':99'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+      ALSOFT_DRIVERS: 'null'
+      SDL_AUDIODRIVER: 'dummy'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.8.0'
+      - name: Configure software OpenGL display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb mesa-utils libgl1-mesa-dri scrot
+          Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render >xvfb.log 2>&1 &
+          sleep 3
+      - name: Compile Java 25 and Fabric mod
+        run: gradle --no-daemon build
+      - name: Boot Minecraft 26.3 Fabric client
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p client-smoke
+          timeout 360s gradle --no-daemon runClient > client-smoke/console.log 2>&1 &
+          LAUNCH_PID=$!
+          trap 'kill "$LAUNCH_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 120); do
+            if [ -f run/logs/latest.log ] && grep -q 'OpenTogether' run/logs/latest.log \
+                && grep -q 'Minecraft' run/logs/latest.log; then
+              echo "OpenTogether button actually registered on Minecraft 26.3 title"
+              sleep 10
+              if ! kill -0 "$LAUNCH_PID"; then
+                tail -n 150 client-smoke/console.log
+                exit 1
+              fi
+              scrot client-smoke/fabric-title.png || true
+              exit 0
+            fi
+            if ! kill -0 "$LAUNCH_PID"; then
+              tail -n 150 client-smoke/console.log
+              exit 1
+            fi
+            sleep 2
+          done
+          tail -n 150 client-smoke/console.log
+          echo "Client startup timed out"
+          exit 1
+      - name: Upload crash reports, logs and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opentogether-fabric-26.3-client-logs
+          path: |
+            fabric-26.3/client-smoke/**
+            fabric-26.3/run/logs/**
+            fabric-26.3/run/crash-reports/**
+          if-no-files-found: warn

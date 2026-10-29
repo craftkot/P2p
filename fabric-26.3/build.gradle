@@ -1,0 +1,63 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+group = 'dev.opentogether'
+version = project.mod_version
+
+base {
+    archivesName = 'opentogether-fabric-26.3'
+}
+
+repositories {
+    maven {
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        opentogether {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+
+    // Official MIT-licensed e4mc 6.2.3 for modern Fabric.
+    implementation "maven.modrinth:qANg5Jrr:RNDvrMAd"
+    include "maven.modrinth:qANg5Jrr:RNDvrMAd"
+
+    // Include Fabric API needed by e4mc and by our screen hooks.
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    include "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+}
+
+processResources {
+    inputs.property 'version', version
+    filesMatching('fabric.mod.json') {
+        expand 'version': version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.named('jar', Jar) {
+    from(rootProject.file('../src/main/resources/licenses/e4mc-MIT.txt')) {
+        into('META-INF/licenses')
+    }
+}
