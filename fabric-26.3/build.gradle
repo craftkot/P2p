@@ -9,13 +9,6 @@ base {
     archivesName = 'opentogether-fabric-26.3'
 }
 
-repositories {
-    maven {
-        url = 'https://api.modrinth.com/maven'
-        content { includeGroup 'maven.modrinth' }
-    }
-}
-
 loom {
     splitEnvironmentSourceSets()
     mods {
@@ -60,8 +53,3 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 
-tasks.named('jar', Jar) {
-    from(rootProject.file('../src/main/resources/licenses/e4mc-MIT.txt')) {
-        into('META-INF/licenses')
-    }
-}
