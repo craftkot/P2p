@@ -3,7 +3,7 @@
   "id": "opentogether",
   "version": "${version}",
   "name": "OpenTogether",
-  "description": "Minecraft 26.3 Fabric friend invitations with integrated e4mc relay and network diagnostics.",
+  "description": "Minecraft 26.3 Fabric LAN/direct TCP invitations and chunk diagnostics without e4mc.",
   "authors": [
     "craftkot"
   ],
