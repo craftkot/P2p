@@ -2,7 +2,7 @@ name: Fabric 26.3 Build
 
 on:
   push:
-    branches: ['feature/fabric-26.3*', main]
+    branches: ['feature/fabric-26.3*', 'feature/direct-tcp-no-e4mc', main]
     paths:
       - 'fabric-26.3/**'
       - '.github/workflows/fabric-26.3.yml'
@@ -33,7 +33,7 @@ jobs:
           gradle-version: '9.8.0'
       - name: Build Fabric 26.3
         run: gradle --no-daemon clean build --stacktrace
-      - name: Verify Fabric metadata and nested e4mc
+      - name: Verify Fabric metadata, Fabric API and absence of e4mc
         run: |
           python3 - <<'PY'
           import glob, zipfile, json
@@ -45,7 +45,7 @@ jobs:
             assert data['depends']['minecraft']=='~26.3'
             nested=[p for p in z.namelist() if p.startswith('META-INF/jars/') and p.endswith('.jar')]
             print('Nested Fabric dependencies:',nested)
-            assert any('e4mc' in p.lower() or 'qANg5Jrr' in p for p in nested), 'Missing embedded e4mc'
+            assert not any('e4mc' in p.lower() or 'qang5jrr' in p.lower() for p in nested), 'Unexpected e4mc dependency'
             assert any('fabric-api' in p.lower() for p in nested), 'Missing embedded Fabric API'
           PY
       - uses: actions/upload-artifact@v4
